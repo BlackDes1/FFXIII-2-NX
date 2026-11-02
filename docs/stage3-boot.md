@@ -69,5 +69,25 @@ freeze rate, six clean runs by chance have ~9% probability; more runs come with 
 Fix (default): the handler runs with the mutex level ExecuteInterrupt took released, as interrupts on the console
 are masked only on the hardware thread that disabled them.
 
+### New Game -> opening -> first battle; ~100 s frozen loading screen (memexport readback)
+
+Scripted New Game runs (title -> "Begin game in NORMAL MODE?" Yes -> new save on "Xbox 360 Hard Drive" -> opening
+cutscenes with Lightning and Caius -> Bahamut Chaos battle with the "Learn about the battle basics?" prompt): no crash
+in 12 min, steady 30 fps in the cutscenes, 60 fps in menus. The save is created ("[save] create 'ff13-00.dat'").
+
+Problem: the transition from the opening into the battle presented no frame for ~100 s (game frames 0/s from ~430 s
+to ~530 s; no file I/O in that window, music kept playing).
+CPU profile of 440..500 s (src/ffxiii2_profile.cpp, `boot_test.ps1 -ProfileAt 440 -ProfileFor 60`, PDB names):
+- Main thread 100 % busy: 55 % sub_82856928 + 30 % sub_82850D88 = the game's D3D wait for the GPU (ring buffer);
+- GPU command thread: 54 % `CheckSubmissionFence` under `IssueDraw_MemexportReadbackFullPath`, 43 % copying.
+Every draw whose shader writes to memory (memexport) made the emulated GPU wait for the host GPU and copy the result
+back to guest memory; the SDK's "fast" readback falls back to the full synchronous path inside one submission.
+
+Fix: `readback_memexport = false` as the app's built-in default (Ffxiii2App::BuiltInConfig; ffxiii2.toml can still
+turn it on). Same run with readback off: the transition takes ~15 s at 30 fps (one 5-s window at 23 fps), CPU over
+the run 319 s instead of 509 s, and the opening (300 s, 400 s) and battle frames look the same as with readback on.
+Upstream Xenia also defaults to no memexport readback. Not verified: later scenes that might read memexported data on
+the CPU (would show as wrong animation or effects).
+
 Next: past the title (New Game -> opening; the USA project also reports a loading-screen freeze after the opening
 battles, which this fix should cover), then save handling (`XamUserWriteProfileSettings` data type 1), then stage 4.

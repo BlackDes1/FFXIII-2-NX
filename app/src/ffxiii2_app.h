@@ -20,6 +20,16 @@ class Ffxiii2App : public rex::ReXApp {
     return std::unique_ptr<Ffxiii2App>(new Ffxiii2App(ctx, "ffxiii2", PPCImageConfig));
   }
 
+  // Built-in defaults (ffxiii2.toml overrides them key by key).
+  //   readback_memexport = false: with the SDK default (true) every draw whose shader writes to memory (memexport)
+  //   waits for the GPU and copies the result back (D3D12CommandProcessor::IssueDraw_MemexportReadbackFullPath: the
+  //   fast path falls back to it within one submission). The first loading screen after the opening (into the
+  //   Bahamut Chaos battle) then showed no frame for ~100 s: CPU profile 440..500 s = main thread 85 % in the D3D
+  //   GPU wait sub_82856928/sub_82850D88, GPU thread 54 % in CheckSubmissionFence + 43 % copying. With readback off
+  //   the same transition takes ~15 s at 30 fps and the opening and battle frames look the same (docs/stage3-boot.md).
+  //   Upstream Xenia also defaults to no memexport readback.
+  std::string_view BuiltInConfig() const override { return "readback_memexport = false\n"; }
+
   // Test captures of the presented frame (cvar ffxiii2_shots), for boot tests that keep the window minimized.
   void OnPostSetup() override {
     ffxiii2::profile::Start();  // cvar ffxiii2_profile_from_s (Windows sampling profiler, test runs)
