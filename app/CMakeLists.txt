@@ -14,6 +14,7 @@ include(generated/rexglue.cmake)
 set(FFXIII2_SOURCES
     src/main.cpp
     src/ffxiii2_capture.cpp
+    src/ffxiii2_irq.cpp
 )
 if(WIN32)
     add_executable(ffxiii2 WIN32 ${FFXIII2_SOURCES})
