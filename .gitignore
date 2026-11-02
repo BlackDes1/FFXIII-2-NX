@@ -1,0 +1,9 @@
+# game data and anything generated from it stay out of the repository
+/app/generated/
+/out/
+/sdk/
+/game_root/
+*.xex
+*.xexp
+*.iso
+*.x360.bin

@@ -1,0 +1,16 @@
+# Settings read at startup (ReXGlue cvars). The build copies this file next to ffxiii2.exe when there is none there;
+# edit that copy. Any cvar can also be given on the command line (--name=value) or as REX_<NAME>.
+
+# Your extracted game (Works\game_root: disc files + the TU6 .xexp beside each .xex) and the TU6 data files
+# (white_patch_e etc., mounted as update:). tools\win\setup.ps1 writes the absolute paths into the copy next to the exe.
+game_data_root = "@GAME_ROOT@"
+update_data_root = "@UPDATE_ROOT@"
+
+# Stage 3: ReXGlue's emulated Xenos GPU (D3D12 on Windows).
+gpu_plugin = "xenos"
+log_level = "info"
+
+# Test runs never take over the desktop: start muted and minimized (no fullscreen). Set both to false to play.
+audio_mute = true
+window_start_minimized = true
+fullscreen = false
