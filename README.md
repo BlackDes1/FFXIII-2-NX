@@ -12,8 +12,10 @@ generated C++ in `app\generated` (git-ignored).
   Windows by the scripts below.
 - Stage 3a, headless CPU-side boot (cloud, no GPU): done. Builds, links, runs xstart to the Direct3D wait for the
   GPU with no crash (`docs/stage3-boot.md`). Two fixes found on the way (import entries, game paths from the toml).
-- Stage 3b, boot on PC with the emulated GPU: the game reaches the opening movie and the title screen (Windows,
-  D3D12). Freeze after the first button press found and fixed (graphics interrupt handler, `docs/stage3-boot.md`).
+- Stage 3b, boot on PC with the emulated GPU (Windows, D3D12): New Game -> opening -> first battle playable in
+  scripted tests. Fixed: freeze after the first button press (graphics interrupt handler), ~100 s frozen loading
+  screen (memexport readback), dropped profile settings (SDK patch). `docs/stage3-boot.md`.
+- Play by hand: `play.cmd` (sound, window, keyboard). Scripted test: `tools\win\test_newgame.cmd`.
 
 ## Windows (PowerShell, from this folder)
 Needs Git, Python 3, VS 2022 Build Tools (C++ + Windows SDK) and a portable LLVM clang 20 in `..\_tools\llvm`.

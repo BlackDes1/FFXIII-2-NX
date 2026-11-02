@@ -89,5 +89,19 @@ the run 319 s instead of 509 s, and the opening (300 s, 400 s) and battle frames
 Upstream Xenia also defaults to no memexport readback. Not verified: later scenes that might read memexported data on
 the CPU (would show as wrong animation or effects).
 
-Next: past the title (New Game -> opening; the USA project also reports a loading-screen freeze after the opening
-battles, which this fix should cover), then save handling (`XamUserWriteProfileSettings` data type 1), then stage 4.
+### First battle; profile settings
+
+With both fixes the scripted New Game run (tools/win/test_newgame.cmd) plays the first battle: tutorial pages,
+target selection, Lightning's attacks, damage numbers, an in-battle cutscene, lightning/impact effects, HUD; 30 fps
+throughout, no crash in 12 min (CPU 459 s of 720 s).
+
+`XamUserWriteProfileSettings: Unimplemented data type 1` (logged after the first button press): FFXIII-2 writes an
+INT32 profile setting; the SDK dropped every non-binary value while reporting success. Fixed by
+tools/sdk_patches/0001-xam-store-value-profile-settings.patch (INT32/INT64/FLOAT/DOUBLE/DATETIME stored; applied to
+sdk/ by setup.ps1). Verified: the message is gone after the same press.
+
+Remaining log lines, all expected: `white-extension.xex` and `DEVKIT:\alba_data\bootpath` not found (retail
+behaviour), filelist probes of other regions/trial/wide, `Texture fetch constant ... "invalid" type` warnings (a
+known Xenia-family warning, no visible effect in the captures).
+
+Next: further into the game (first area after the battle, zone module loading, saving/loading a save), then stage 4.
