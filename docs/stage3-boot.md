@@ -31,9 +31,43 @@ What the boot does (log + gdb thread dump after 20 s):
   GPU (device+11024). With GPU emulation off it never advances. **No crash, no unregistered call, no illegal
   instruction in 60 s.** No game file is read before this point (read trace: 0 events).
 
-## 3b. Boot with the emulated GPU (Windows, D3D12) - next
+## 3b. Boot on Windows with the emulated GPU (D3D12) - title screen reached
 
-Needs the PC: `tools\win\setup.ps1`, `codegen.ps1`, `build.ps1`, `boot_test.ps1` (README). The cloud workspace has
-no Vulkan driver (no GPU, no software rasteriser installable), so the Xenos emulation cannot run there.
-Expected next findings (USA project, same code layout): the graphics interrupt handler (USA sub_828510C8) holding
-the runtime's global mutex -> loading-screen freeze after the first battles; zone module load paths.
+PC: AMD Radeon 680M-class iGPU (DXGI device 0x1681), Windows, clang 20.1.8, VS 2022 Build Tools. Run with
+`run_stage3.cmd` / `run_boot.cmd` (codegen -> build.ps1 -> boot_test.ps1, always muted + minimized). Codegen on Windows
+gives the same function table as the cloud run (ffxiii2_register.cpp identical); the first full build took ~6 min.
+
+Tools added for this stage:
+- `ffxiii2_shots` / `boot_test.ps1 -Shots "10,20,..."`: the presented guest frame saved as BMP at those seconds
+  (src/ffxiii2_capture.cpp, SDK presenter CaptureGuestOutput), so a minimized run can be checked visually.
+- `boot_test.ps1 -Pad "12:A,24:START,..."`: scripted pad input (the SDK's `input_script`), no controller needed.
+- `REX_CACHE_ROOT` per run: an empty shader cache, so runs are comparable (a warm cache hides timing problems).
+
+Boot: TU6 applied, Direct3D 12 device up, `SetInterruptCallback(828510C8, 40002180)` (same handler address as the
+USA build), audio running, "Press any button to continue." drawn correctly. With input: opening movie (credits at
+~22 s) -> **Final Fantasy XIII-2 title screen** (~40 s) -> "Begin game in NORMAL MODE?" dialog. Logged once per
+boot: `XamUserWriteProfileSettings: Unimplemented data type 1` (SDK; no visible effect so far).
+
+### Freeze after the first button press: graphics interrupt handler under the global mutex
+
+Symptom (first input run): black screen from the first press on, one core busy, no further frames.
+ReXGlue's `FunctionDispatcher::ExecuteInterrupt` holds the runtime's global mutex for the whole graphics interrupt
+handler sub_828510C8; the handler takes kernel spinlocks, and a game thread holding one of them that needs the
+global mutex waits forever while the handler spins holding the mutex. (Same freeze documented for the USA build by
+leftisthominid/ffxiii-2-port; the hook here, src/ffxiii2_irq.cpp, is written independently.)
+
+Evidence (each run: empty shader cache, same scripted input, interrupt log every 5 s):
+
+| mode | runs | frozen | log of the frozen runs |
+|---|---|---|---|
+| ReXGlue's lock (`FFXIII2_IRQ_LOCK=global`) | B1, B2, G1-G4 | 2 of 6 (G2, G4) | `INSIDE the handler for 60823 ms`, 0 interrupts afterwards, CPU busy |
+| handler outside the global mutex (default) | A, A1, U1-U4 | 0 of 6 | (all reach the title; longest handler call < 0.4 ms) |
+
+(Plus the first input run, without any hook: frozen.) 0 of 6 is good but not conclusive evidence: with a 1-in-3
+freeze rate, six clean runs by chance have ~9% probability; more runs come with every later test.
+
+Fix (default): the handler runs with the mutex level ExecuteInterrupt took released, as interrupts on the console
+are masked only on the hardware thread that disabled them.
+
+Next: past the title (New Game -> opening; the USA project also reports a loading-screen freeze after the opening
+battles, which this fix should cover), then save handling (`XamUserWriteProfileSettings` data type 1), then stage 4.

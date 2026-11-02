@@ -12,7 +12,8 @@ generated C++ in `app\generated` (git-ignored).
   Windows by the scripts below.
 - Stage 3a, headless CPU-side boot (cloud, no GPU): done. Builds, links, runs xstart to the Direct3D wait for the
   GPU with no crash (`docs/stage3-boot.md`). Two fixes found on the way (import entries, game paths from the toml).
-- Stage 3b, boot on PC with the emulated GPU: next. Needs the Windows build.
+- Stage 3b, boot on PC with the emulated GPU: the game reaches the opening movie and the title screen (Windows,
+  D3D12). Freeze after the first button press found and fixed (graphics interrupt handler, `docs/stage3-boot.md`).
 
 ## Windows (PowerShell, from this folder)
 Needs Git, Python 3, VS 2022 Build Tools (C++ + Windows SDK) and a portable LLVM clang 20 in `..\_tools\llvm`.
