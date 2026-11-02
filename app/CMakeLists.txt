@@ -19,7 +19,9 @@ if(WIN32)
 else()
     add_executable(ffxiii2 ${FFXIII2_SOURCES})
 endif()
-rexglue_setup_target(ffxiii2)
+# GPU_PLUGINS xenos: the emulated GPU is loaded at run time (gpu_plugin = "xenos" in ffxiii2.toml), so it has to be
+# staged next to the exe; the SDK copies it only when it is named here.
+rexglue_setup_target(ffxiii2 GPU_PLUGINS xenos)
 
 # Settings next to the executable (only when missing: the copy there is the one to edit).
 add_custom_command(TARGET ffxiii2 POST_BUILD

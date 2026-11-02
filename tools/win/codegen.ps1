@@ -5,7 +5,9 @@
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $log = Join-Path $repo 'out'; New-Item -ItemType Directory -Force $log | Out-Null
-$rexglue = Get-ChildItem (Join-Path $repo 'out\host') -Recurse -Include rexglue.exe -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+# The SDK writes its tools to sdk\out\<platform> (e.g. sdk\out\win-amd64\rexglue.exe), not into the build folder.
+$rexglue = Get-ChildItem (Join-Path $repo 'sdk\out'), (Join-Path $repo 'out\host') -Recurse -Include rexglue.exe -ErrorAction SilentlyContinue |
+  Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
 if (-not $rexglue) { throw 'rexglue.exe not found: run tools\win\setup.ps1 first' }
 $env:REX_MAX_JUMP_TABLE_ENTRIES = '1024'
 $env:REXGLUE_DUMP_IMAGE = Join-Path $log 'default_image.bin'

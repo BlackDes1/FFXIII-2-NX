@@ -63,7 +63,10 @@ if (-not $SkipBuild) {
   cmake --build $host_out --target rexglue *> (Join-Path $log 'host_build.log')
   if ($LASTEXITCODE) { throw 'build failed: out\host_build.log' }
 }
-$rexglue = Get-ChildItem $host_out -Recurse -Include rexglue.exe | Select-Object -First 1 -ExpandProperty FullName
+# The SDK writes its tools to sdk\out\<platform> (e.g. sdk\out\win-amd64\rexglue.exe), not into the build folder.
+$rexglue = Get-ChildItem (Join-Path $repo 'sdk\out'), (Join-Path $repo 'out\host') -Recurse -Include rexglue.exe -ErrorAction SilentlyContinue |
+  Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
+if (-not $rexglue) { throw "rexglue.exe was not built: see out\host_build.log" }
 Write-Host "rexglue: $rexglue"
 
 Write-Host "`nSetup done. Next: powershell -ExecutionPolicy Bypass -File tools\win\codegen.ps1" -ForegroundColor Green
