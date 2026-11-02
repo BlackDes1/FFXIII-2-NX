@@ -16,7 +16,10 @@ generated C++ in `app\generated` (git-ignored).
 
 ## Windows (PowerShell, from this folder)
 Needs Git, Python 3, VS 2022 Build Tools (C++ + Windows SDK) and a portable LLVM clang 20 in `..\_tools\llvm`.
+`tools\win\install_prereqs.ps1` installs all four (winget + the official LLVM installer; asks for admin once) and
+then runs setup.ps1.
 ```
+powershell -ExecutionPolicy Bypass -File tools\win\install_prereqs.ps1   # prerequisites + setup.ps1
 powershell -ExecutionPolicy Bypass -File tools\win\setup.ps1     # sa2-nx SDK, third-party sources, game_root, rexglue.exe
 powershell -ExecutionPolicy Bypass -File tools\win\codegen.ps1   # default.xex + 4 zone DLLs -> app\generated
 powershell -ExecutionPolicy Bypass -File tools\win\build.ps1     # out\pc\ffxiii2.exe + zone DLLs
