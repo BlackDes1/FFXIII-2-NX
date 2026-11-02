@@ -7,7 +7,7 @@ part of the port: SDL X11/Wayland backends off, two declaration-only headers (`X
 
 Inputs: game_root = disc `default.xex`, `z0070/z0130/z0160/z0161.xex` with the TU6 `.xexp` beside each (the SDK
 applies `<file>p` on load: "XEX patch applied successfully: base version: 0.0.0.11, new version: 0.0.6.11" for all
-but z0160, which TU6 does not patch). Patched default.xex: entry 0x82B65478 (`xstart`, mainCRTStartup), code
+including z0160 on Windows; the cloud-side runs used an unpatched z0160 by mistake, see stage1-inspection.md). Patched default.xex: entry 0x82B65478 (`xstart`, mainCRTStartup), code
 `.text` 0x82250000-0x82C312D0 + BINK 0x82C31800-0x82C44050 + RADCODE 0x82C44800-0x82C452F4.
 
 ## Results

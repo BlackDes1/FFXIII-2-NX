@@ -7,7 +7,9 @@ $works = Split-Path $repo -Parent
 $ErrorActionPreference = 'Stop'
 $out = Join-Path $repo 'out\pc'; $log = Join-Path $repo 'out'
 cmake -S (Join-Path $repo 'app') -B $out -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ `
-      "-DCMAKE_C_FLAGS=-march=x86-64-v2" "-DCMAKE_CXX_FLAGS=-march=x86-64-v2" *> (Join-Path $log 'pc_configure.log')
+      "-DCMAKE_C_FLAGS=-march=x86-64-v2" "-DCMAKE_CXX_FLAGS=-march=x86-64-v2 -gline-tables-only" `
+      "-DCMAKE_EXE_LINKER_FLAGS=-Wl,/DEBUG" "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,/DEBUG" *> (Join-Path $log 'pc_configure.log')
+# (-gline-tables-only + /DEBUG: a PDB with function names and lines, for crash symbolization and the CPU profiler.)
 if ($LASTEXITCODE) { Get-Content (Join-Path $log 'pc_configure.log') -Tail 30; throw 'configure failed: out\pc_configure.log' }
 Write-Host '== building (the first build compiles ~190 MB of generated C++: this takes a while)'
 cmake --build $out *> (Join-Path $log 'pc_build.log')

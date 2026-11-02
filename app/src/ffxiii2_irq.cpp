@@ -12,7 +12,8 @@
 // the other threads' "interrupts off" sections. Default here: the handler runs WITHOUT the global mutex (released for
 // the call, taken back after). FFXIII2_IRQ_LOCK=global keeps ReXGlue's behaviour, for comparison.
 //
-// Diagnostics, every 5 s while interrupts arrive: "[irq] N calls, longest X ms; inside the handler for Y ms" -
+// Diagnostics, every 5 s while interrupts arrive: "[irq] N calls, longest X ms; game frames F/s; inside the handler
+// for Y ms" (F = VdSwap calls per second) -
 // a handler that is still inside after seconds is the freeze.
 #include <atomic>
 #include <chrono>
@@ -21,6 +22,7 @@
 #include <thread>
 
 #include <rex/hook.h>
+#include <rex/kernel/xboxkrnl/video.h>
 #include <rex/logging.h>
 #include <fmt/format.h>
 #include <rex/thread/mutex.h>
@@ -47,15 +49,18 @@ void StartReporter() {
   static std::atomic<bool> started{false};
   if (started.exchange(true)) return;
   std::thread([] {
-    uint64_t last = 0;
+    uint64_t last = 0, last_swaps = rex::kernel::xboxkrnl::VdSwapCount();
     for (;;) {
       std::this_thread::sleep_for(std::chrono::seconds(5));
       const uint64_t calls = g_calls.load(), longest = g_longest_us.exchange(0);
       const int64_t since = g_inside_since_us.load();
       const int64_t inside_ms = since ? (NowUs() - since) / 1000 : 0;
-      REXLOG_INFO("[irq] {} calls in 5 s, longest {:.2f} ms{}", calls - last, longest / 1000.0,
+      const uint64_t swaps = rex::kernel::xboxkrnl::VdSwapCount();
+      REXLOG_INFO("[irq] {} calls in 5 s, longest {:.2f} ms; game frames {:.1f}/s{}", calls - last, longest / 1000.0,
+                  (swaps - last_swaps) / 5.0,
                   inside_ms > 100 ? fmt::format("; INSIDE the handler for {} ms", inside_ms) : std::string());
       last = calls;
+      last_swaps = swaps;
     }
   }).detach();
 }

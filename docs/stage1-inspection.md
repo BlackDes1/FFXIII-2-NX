@@ -16,10 +16,13 @@ Output: `..\game_data\disc`, `..\game_data\tu` (outside the repository).
 | default.xexp (TU6) | 8d48ccf8aabff2da2a1da3e4e4315fcb765007ac0c4d293880874f7464224029 | image 0xF50000 | | 0.0.0.11 -> 0.0.6.11 |
 | z0070.xex (z0070.dll) | 294dcedf... | 0x88800000, 0x30000 | 0x88810368 | 0.0.0.11 |
 | z0130.xex (z0130.dll) | 272889d8... | 0x88800000, 0x70000 (TU: 0x90000) | 0x88842A70 | 0.0.0.11 |
-| z0160.xex (z0160.dll) | 906d9de8... | 0x88800000, 0x30000 | 0x88810368 | 0.0.0.11, no TU patch |
+| z0160.xex (z0160.dll) | 906d9de8... | 0x88800000, 0x30000 | 0x88810368 | 0.0.0.11 |
 | z0161.xex (z0161.dll) | c483efd1... | 0x88800000, 0x30000 (TU: 0x40000) | 0x88810368 | 0.0.0.11 |
 
-TU patches: default, z0070, z0130, z0161 (.xexp, delta 0.0.0.11 -> 0.0.6.11). No z0160.xexp in TU6.
+TU patches: default, z0070, z0130, z0160, z0161 (.xexp, delta 0.0.0.11 -> 0.0.6.11).
+(Correction, stage 3b: an earlier version of this note said TU6 has no z0160.xexp. The STFS extraction did write it
+(4096 bytes, same as z0070.xexp); it was left out of the header inspection and of the cloud-side codegen inputs. The
+Windows codegen and the game use the patched z0160, "XEX patch applied successfully" in the boot log.)
 The TU also carries data patches: white_patch_e / white_patch_scr_e + their filelists.
 
 XDK: 2.0.20871 (D3D9, XAUDIO2, XMP, XONLINE ...), compiler 16.0.11886 (Xenon MSVC). Imports: xboxkrnl.exe, xam.xex.

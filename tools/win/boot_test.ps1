@@ -2,9 +2,10 @@
 # the speakers), stopped after -Seconds; prints how it ended and the end of its log.
 #   powershell -ExecutionPolicy Bypass -File tools\win\boot_test.ps1 [-Seconds 60] [-Tail 60] [-Shots "15,30,60"]
 # -Pad: scripted pad input for player 1, 'seconds:BUTTON[:hold],...' (SDK cvar input_script), e.g. "12:A,20:START".
+# -ProfileAt N -ProfileFor M: CPU sampling profile of seconds N..N+M -> out\pc\logs\profile_<N>s.txt (Windows).
 # -Shots: save the game's frame at those seconds to out\pc\captures\shot_<s>s.bmp (works while minimized).
 # Do not pipe this into Select-Object -First (that stops the script before it kills the game).
-param([int]$Seconds = 60, [int]$Tail = 60, [string]$Shots = '', [string]$Pad = '')
+param([int]$Seconds = 60, [int]$Tail = 60, [string]$Shots = '', [string]$Pad = '', [int]$ProfileAt = 0, [int]$ProfileFor = 30)
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $exe = Join-Path $repo 'out\pc\ffxiii2.exe'
 if (-not (Test-Path $exe)) { throw "$exe not found: run tools\win\build.ps1" }
@@ -13,6 +14,7 @@ Get-Process ffxiii2 -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $
 $started = Get-Date
 $env:REX_FFXIII2_SHOTS = $Shots
 $env:REX_INPUT_SCRIPT = $Pad
+$env:REX_FFXIII2_PROFILE_FROM_S = "$ProfileAt"; $env:REX_FFXIII2_PROFILE_DURATION_S = "$ProfileFor"
 $env:REX_AUDIO_MUTE = 'true'; $env:REX_WINDOW_START_MINIMIZED = 'true'; $env:REX_FULLSCREEN = 'false'
 $p = Start-Process -FilePath $exe -WorkingDirectory $dir -PassThru -WindowStyle Minimized
 $p.WaitForExit($Seconds * 1000) | Out-Null

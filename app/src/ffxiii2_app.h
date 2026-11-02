@@ -10,6 +10,7 @@
 #include <toml++/toml.hpp>
 
 #include "ffxiii2_capture.h"
+#include "ffxiii2_profile.h"
 
 class Ffxiii2App : public rex::ReXApp {
  public:
@@ -21,6 +22,7 @@ class Ffxiii2App : public rex::ReXApp {
 
   // Test captures of the presented frame (cvar ffxiii2_shots), for boot tests that keep the window minimized.
   void OnPostSetup() override {
+    ffxiii2::profile::Start();  // cvar ffxiii2_profile_from_s (Windows sampling profiler, test runs)
     ffxiii2::capture::Start([this]() -> rex::ui::Presenter* {
       const auto* rt = runtime();
       const auto* graphics = rt ? rt->graphics_system() : nullptr;
