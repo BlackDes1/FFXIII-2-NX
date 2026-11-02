@@ -33,25 +33,25 @@ function Get-File($url, $out) {
   }
   return $out
 }
-$winget = [bool](Get-Command winget -ErrorAction SilentlyContinue)
+$winget = [bool](Get-Command winget.exe -CommandType Application -ErrorAction SilentlyContinue)
 if (-not $winget) { Write-Warning 'winget not found (install "App Installer" from the Microsoft Store). Git and Python must then be installed by hand.' }
-function Winget($id, $override) {
+function Install-WithWinget($id, $override) {
   $wa = @('install', '--id', $id, '-e', '--source', 'winget', '--accept-package-agreements', '--accept-source-agreements', '--silent')
   if ($override) { $wa += @('--override', $override) }
-  & winget @wa
+  & winget.exe @wa   # winget.exe explicitly: PowerShell names are case-insensitive
   # 0 = installed; -1978335189 (0x8A15002B) = already installed / no newer version
   if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne -1978335189) { Write-Warning "winget $id returned $LASTEXITCODE" }
 }
 
 # --- Git ----------------------------------------------------------------------------------------------------------
 Step 'Git'
-if (Get-Command git -ErrorAction SilentlyContinue) { git --version } elseif ($winget) { Winget 'Git.Git' }
+if (Get-Command git -ErrorAction SilentlyContinue) { git --version } elseif ($winget) { Install-WithWinget 'Git.Git' }
 
 # --- Python -------------------------------------------------------------------------------------------------------
 Step 'Python 3'
 $py = Get-Command python -ErrorAction SilentlyContinue
 if ($py -and $py.Source -notlike '*WindowsApps*') { python --version }   # WindowsApps\python.exe is only the Store alias
-elseif ($winget) { Winget 'Python.Python.3.12' '/quiet InstallAllUsers=1 PrependPath=1 Include_launcher=1' }
+elseif ($winget) { Install-WithWinget 'Python.Python.3.12' '/quiet InstallAllUsers=1 PrependPath=1 Include_launcher=1' }
 
 # --- VS 2022 Build Tools ------------------------------------------------------------------------------------------
 Step 'VS 2022 Build Tools (C++ workload + Windows SDK)'
@@ -59,7 +59,7 @@ $vs = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools'
 $vsArgs = '--wait --passive --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'
 if (Test-Path (Join-Path $vs 'VC\Auxiliary\Build\vcvars64.bat')) { Write-Host "found: $vs" }
 else {
-  if ($winget) { Winget 'Microsoft.VisualStudio.2022.BuildTools' $vsArgs }
+  if ($winget) { Install-WithWinget 'Microsoft.VisualStudio.2022.BuildTools' $vsArgs }
   if (-not (Test-Path (Join-Path $vs 'VC\Auxiliary\Build\vcvars64.bat'))) {
     $boot = Get-File 'https://aka.ms/vs/17/release/vs_BuildTools.exe' (Join-Path $dl 'vs_BuildTools.exe')
     Start-Process $boot -ArgumentList $vsArgs -Wait
