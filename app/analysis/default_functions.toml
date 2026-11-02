@@ -340,17 +340,11 @@ longjmp_address = 0x82C15900
 0x82C2E698 = { size = 20 } # pointer-only: address built at 0x82C1A8F8 (lis/addi); code to the unconditional exit inside .pdata gap 0x82C2E698-0x82C2E6AC
 0x82C2EC68 = { size = 4 } # pointer-only: address built at 0x82C1CDB0 (lis/addi); code to the unconditional exit inside .pdata gap 0x82C2EC68-0x82C2EC6C
 0x82C2ECE8 = { size = 12 } # pointer-only: address built at 0x82C1D0C8 (lis/addi); code to the unconditional exit inside .pdata gap 0x82C2ECE8-0x82C2ECF4
-0x82C30EB0 = { size = 16 } # pointer-only: pointer stored at 0x82CCF920 (.data); code to the unconditional exit inside .pdata gap 0x82C30630-0x82C312D0
-0x82C30EC0 = { size = 16 } # pointer-only: pointer stored at 0x82CCF904 (.data); code to the unconditional exit inside .pdata gap 0x82C30630-0x82C312D0
-0x82C30FC0 = { size = 16 } # pointer-only: pointer stored at 0x82CCF8FC (.data); code to the unconditional exit inside .pdata gap 0x82C30630-0x82C312D0
-0x82C30FD0 = { size = 16 } # pointer-only: pointer stored at 0x82CCF91C (.data); code to the unconditional exit inside .pdata gap 0x82C30630-0x82C312D0
-0x82C31040 = { size = 16 } # pointer-only: pointer stored at 0x82CCF918 (.data); code to the unconditional exit inside .pdata gap 0x82C30630-0x82C312D0
-0x82C310C0 = { size = 16 } # pointer-only: pointer stored at 0x82CCF914 (.data); code to the unconditional exit inside .pdata gap 0x82C30630-0x82C312D0
-0x82C31180 = { size = 16 } # pointer-only: pointer stored at 0x82CCF924 (.data); code to the unconditional exit inside .pdata gap 0x82C30630-0x82C312D0
-0x82C31190 = { size = 16 } # pointer-only: pointer stored at 0x82CCF910 (.data); code to the unconditional exit inside .pdata gap 0x82C30630-0x82C312D0
-0x82C311A0 = { size = 16 } # pointer-only: pointer stored at 0x82CCF90C (.data); code to the unconditional exit inside .pdata gap 0x82C30630-0x82C312D0
-0x82C311B0 = { size = 16 } # pointer-only: pointer stored at 0x82CCF908 (.data); code to the unconditional exit inside .pdata gap 0x82C30630-0x82C312D0
-0x82C311C0 = { size = 16 } # pointer-only: pointer stored at 0x82CCF900 (.data); code to the unconditional exit inside .pdata gap 0x82C30630-0x82C312D0
+
+# (2026-11-02, stage 3 link) 11 entries in the import-thunk table 0x82C30630-0x82C312D0 (0x82C30EB0 ... 0x82C311C0)
+# were removed: they are xboxkrnl import stubs (NtOpenFile, NtCreateFile, NtClose, NtReadFile, ... by ordinal) whose
+# addresses the game keeps in a .data table at 0x82CCF900; declaring them as functions replaced the imports with
+# undefined sub_ symbols (link error). ptrscan.py now takes all registered functions, imports included, as known.
 
 # Pass 3: exact-shape thunks in gaps that no pointer the scan sees reaches (the vtables or pointer arithmetic that do
 # are not visible statically): lwz r12,0(r3); lwz r11,N(r12); mtctr r11; bctr / addi r3,r3,N; b f / lwz r3,N(r3); b f

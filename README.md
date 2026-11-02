@@ -10,7 +10,9 @@ generated C++ in `app\generated` (git-ignored).
 - Stage 1, extract + inspect: done (`docs/stage1-inspection.md`).
 - Stage 2, codegen + missed-code sweeps: done in the cloud workspace (`docs/stage2-codegen.md`); to be reproduced on
   Windows by the scripts below.
-- Stage 3, boot on PC with the emulated GPU: next. Needs the Windows build.
+- Stage 3a, headless CPU-side boot (cloud, no GPU): done. Builds, links, runs xstart to the Direct3D wait for the
+  GPU with no crash (`docs/stage3-boot.md`). Two fixes found on the way (import entries, game paths from the toml).
+- Stage 3b, boot on PC with the emulated GPU: next. Needs the Windows build.
 
 ## Windows (PowerShell, from this folder)
 Needs Git, Python 3, VS 2022 Build Tools (C++ + Windows SDK) and a portable LLVM clang 20 in `..\_tools\llvm`.
