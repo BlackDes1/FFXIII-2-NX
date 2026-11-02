@@ -41,6 +41,16 @@ if (-not (Test-Path (Join-Path $sdk 'CMakeLists.txt'))) {
 python (Join-Path $repo 'tools\fetch_thirdparty.py') --target (Join-Path $sdk 'thirdparty')
 if ($LASTEXITCODE) { throw 'fetch_thirdparty.py failed' }
 
+Step 'SDK patches (tools\sdk_patches, each with its reason inside)'
+foreach ($p in Get-ChildItem (Join-Path $repo 'tools\sdk_patches') -Filter '*.patch' -ErrorAction SilentlyContinue | Sort-Object Name) {
+  # cmd /c: Windows PowerShell turns a native command's stderr into an error under ErrorActionPreference=Stop.
+  & $env:ComSpec /c "git -C `"$repo`" apply --reverse --check `"$($p.FullName)`" >nul 2>nul"
+  if ($LASTEXITCODE -eq 0) { Write-Host "  already applied: $($p.Name)"; continue }
+  & $env:ComSpec /c "git -C `"$repo`" apply `"$($p.FullName)`""
+  if ($LASTEXITCODE) { throw "SDK patch did not apply: $($p.Name)" }
+  Write-Host "  applied: $($p.Name)"
+}
+
 Step 'Game root (hard links to your extracted files; nothing is copied into the repository)'
 $gr = Join-Path $works 'game_root'; New-Item -ItemType Directory -Force $gr | Out-Null
 $disc = Join-Path $works 'game_data\disc'; $tu = Join-Path $works 'game_data\tu'
