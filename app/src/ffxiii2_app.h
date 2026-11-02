@@ -4,8 +4,12 @@
 #pragma once
 
 #include <filesystem>
+#include <rex/graphics/graphics_system.h>
 #include <rex/rex_app.h>
+#include <rex/runtime.h>
 #include <toml++/toml.hpp>
+
+#include "ffxiii2_capture.h"
 
 class Ffxiii2App : public rex::ReXApp {
  public:
@@ -13,6 +17,15 @@ class Ffxiii2App : public rex::ReXApp {
 
   static std::unique_ptr<rex::ui::WindowedApp> Create(rex::ui::WindowedAppContext& ctx) {
     return std::unique_ptr<Ffxiii2App>(new Ffxiii2App(ctx, "ffxiii2", PPCImageConfig));
+  }
+
+  // Test captures of the presented frame (cvar ffxiii2_shots), for boot tests that keep the window minimized.
+  void OnPostSetup() override {
+    ffxiii2::capture::Start([this]() -> rex::ui::Presenter* {
+      const auto* rt = runtime();
+      const auto* graphics = rt ? rt->graphics_system() : nullptr;
+      return graphics ? graphics->presenter() : nullptr;
+    });
   }
 
   // ReXApp::SetupEnvironment resolves the game / update roots from the cvars BEFORE it loads ffxiii2.toml, so a

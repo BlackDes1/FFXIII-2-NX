@@ -1,14 +1,16 @@
 # FFXIII-2 port: one boot test of out\pc\ffxiii2.exe. Always muted and minimized (it never takes over the desktop or
 # the speakers), stopped after -Seconds; prints how it ended and the end of its log.
-#   powershell -ExecutionPolicy Bypass -File tools\win\boot_test.ps1 [-Seconds 60] [-Tail 60]
+#   powershell -ExecutionPolicy Bypass -File tools\win\boot_test.ps1 [-Seconds 60] [-Tail 60] [-Shots "15,30,60"]
+# -Shots: save the game's frame at those seconds to out\pc\captures\shot_<s>s.bmp (works while minimized).
 # Do not pipe this into Select-Object -First (that stops the script before it kills the game).
-param([int]$Seconds = 60, [int]$Tail = 60)
+param([int]$Seconds = 60, [int]$Tail = 60, [string]$Shots = '')
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $exe = Join-Path $repo 'out\pc\ffxiii2.exe'
 if (-not (Test-Path $exe)) { throw "$exe not found: run tools\win\build.ps1" }
 $dir = Split-Path $exe
 Get-Process ffxiii2 -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exe } | Stop-Process -Force
 $started = Get-Date
+$env:REX_FFXIII2_SHOTS = $Shots
 $env:REX_AUDIO_MUTE = 'true'; $env:REX_WINDOW_START_MINIMIZED = 'true'; $env:REX_FULLSCREEN = 'false'
 $p = Start-Process -FilePath $exe -WorkingDirectory $dir -PassThru -WindowStyle Minimized
 $p.WaitForExit($Seconds * 1000) | Out-Null
