@@ -1,0 +1,22 @@
+# Final Fantasy XIII-2 for the Switch: the fixed settings, compiled into the NRO (app/CMakeLists.txt,
+# src/ffxiii2_app.h BuiltInConfig) and applied before the SD card's ffxiii2.toml, which may override any key here.
+# This is the first Switch stage (the emulated Xenos GPU on static NVK, as the PC build runs on D3D12): logging and
+# the profiler are ON, for testing.
+
+# The emulated GPU (the native renderer is stage 4).
+gpu_plugin = "xenos"
+# The PC's evidence (src/ffxiii2_app.h, docs/stage3-boot.md): with memexport readback every memory-exporting draw
+# waits for the GPU; the first loading screen then showed no frame for ~100 s.
+readback_memexport = false
+
+# Game files: sdmc:/switch/ffxiii2-nx/game_root (the disc + the TU6 .xexp beside each .xex) and .../update (the TU6
+# data files), found next to the NRO by src/ffxiii2_app.h when no path is given here.
+# The asset cache (<game_root>.nxpack) is used when it exists, but never built at start: the disc is ~8 GB.
+asset_pack = true
+asset_pack_build = false
+
+# Logging and the profiler (logs/ next to the NRO).
+log_level = "info"
+log_to_file = true
+switch_profile_report = true
+switch_profile_stacks = false

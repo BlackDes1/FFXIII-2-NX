@@ -9,8 +9,14 @@
 #include <rex/runtime.h>
 #include <toml++/toml.hpp>
 
+#include <rex/filesystem.h>
+
 #include "ffxiii2_capture.h"
 #include "ffxiii2_profile.h"
+#include "ffxiii2_switch_cvars.h"
+#if defined(FFXIII2_BUILTIN_CONFIG)
+#include "ffxiii2_builtin_config.h"  // generated from app/ffxiii2_switch_defaults.toml (CMake, Switch build)
+#endif
 
 class Ffxiii2App : public rex::ReXApp {
  public:
@@ -28,7 +34,25 @@ class Ffxiii2App : public rex::ReXApp {
   //   GPU wait sub_82856928/sub_82850D88, GPU thread 54 % in CheckSubmissionFence + 43 % copying. With readback off
   //   the same transition takes ~15 s at 30 fps and the opening and battle frames look the same (docs/stage3-boot.md).
   //   Upstream Xenia also defaults to no memexport readback.
-  std::string_view BuiltInConfig() const override { return "readback_memexport = false\n"; }
+  //   The Switch build compiles in app/ffxiii2_switch_defaults.toml instead, which carries the same key.
+  std::string_view BuiltInConfig() const override {
+#if defined(FFXIII2_BUILTIN_CONFIG)
+    return kFfxiii2BuiltInConfig;
+#else
+    return "readback_memexport = false\n";
+#endif
+  }
+  // Switch: without an ffxiii2.toml next to the NRO, the player's default one is written there (app/ffxiii2_switch.toml).
+  std::string_view DefaultConfigFile() const override {
+#if defined(FFXIII2_BUILTIN_CONFIG)
+    return kFfxiii2PlayerConfig;
+#else
+    return {};
+#endif
+  }
+
+  // Mesa/NVK options (cvar ffxiii2_mesa_env) before the window and the Vulkan instance exist.
+  void OnPostInitLogging() override { ffxiii2::ApplyMesaEnvironment(); }
 
   // Test captures of the presented frame (cvar ffxiii2_shots), for boot tests that keep the window minimized.
   void OnPostSetup() override {
@@ -46,7 +70,20 @@ class Ffxiii2App : public rex::ReXApp {
   void OnConfigurePaths(rex::PathConfig& paths) override {
     if (!paths.game_data_root.empty() && !paths.update_data_root.empty()) return;
     std::error_code ec;
-    if (!std::filesystem::exists(paths.config_path, ec)) return;
+    if (std::filesystem::exists(paths.config_path, ec)) ReadRootsFromToml(paths);
+    // Still none (the Switch: the toml next to the NRO names no path): game_root/ and update/ next to the executable,
+    // i.e. sdmc:/switch/ffxiii2-nx/game_root and .../update.
+    const auto folder = rex::filesystem::GetExecutableFolder();
+    if (folder.empty()) return;
+    if (paths.game_data_root.empty() && (std::filesystem::is_regular_file(folder / "game_root" / "default.xex", ec) ||
+                                         std::filesystem::is_regular_file(folder / "game_root.nxpack", ec)))
+      paths.game_data_root = folder / "game_root";
+    if (paths.update_data_root.empty() && std::filesystem::is_directory(folder / "update", ec))
+      paths.update_data_root = folder / "update";
+  }
+
+ private:
+  static void ReadRootsFromToml(rex::PathConfig& paths) {
     try {
       const toml::table t = toml::parse_file(paths.config_path.string());
       if (paths.game_data_root.empty())

@@ -1,0 +1,6 @@
+# Final Fantasy XIII-2 settings, read at start (sdmc:/switch/ffxiii2-nx/ffxiii2.toml).
+# Everything else is built into the NRO (app/ffxiii2_switch_defaults.toml in the repository); a key copied here
+# overrides the built-in value.
+
+# true: CPU stack samples every 1 ms in logs/rex/rex_profile.log (slower; for measuring).
+switch_profile_stacks = false

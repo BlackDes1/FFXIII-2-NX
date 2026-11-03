@@ -1,0 +1,35 @@
+diff --git a/sdk/src/core/guest_memory_switch.cpp b/sdk/src/core/guest_memory_switch.cpp
+--- a/sdk/src/core/guest_memory_switch.cpp
++++ b/sdk/src/core/guest_memory_switch.cpp
+@@ -15,6 +15,13 @@
+ #include <mutex>
+ #include <vector>
+ 
++#include <rex/cvar.h>
++
++REXCVAR_DEFINE_BOOL(switch_guest_views_eager, false, "Memory",
++                    "Switch: map a committed guest memory chunk into every view at once instead of on first access "
++                    "(for emulators that deliver no data aborts, e.g. Eden; always on without a loader)")
++    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
++
+ namespace {
+ 
+ constexpr size_t kPageSize  = 0x1000;
+@@ -134,9 +141,15 @@
+  * that RexGmFaultIn answers on a console ends the process there. A console always has the loader's handle and keeps
+  * the lazy views (the process limit on mappable memory, see RexGmCommit).
+  */
++/*
++ * ffxiii2-nx (2026-11-03): Eden (v0.2.1) starts the NRO with a process handle, so the test above keeps the lazy views,
++ * but it does not deliver data aborts either: its log showed "HW.Memory <Error> Unmapped Write64 @ 0x00000035141FA000"
++ * and onwards (a guest view not mapped yet, the write dropped), then the emulator itself crashed (0xC0000005).
++ * switch_guest_views_eager = true takes the eager path there too; on a console leave it off (process memory limit).
++ */
+ bool EagerViews() {
+-  static const bool eager = envGetOwnProcessHandle() == INVALID_HANDLE;
+-  return eager;
++  static const bool no_loader = envGetOwnProcessHandle() == INVALID_HANDLE;
++  return no_loader || REXCVAR_GET(switch_guest_views_eager);
+ }
+ 
+ bool Intersect(size_t a, size_t al, size_t b, size_t bl, size_t* lo, size_t* hi) {

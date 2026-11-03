@@ -27,7 +27,8 @@ function-pointer / handler tables (with null slots) whose non-null targets are a
 
 Every entry is in `app/analysis/*.toml` with its evidence. Fixpoint: after the additions, a second pointer pass
 finds 0 candidates; the remaining non-padding gaps (1,976 bytes) are SEH data words before functions and one
-unreferenced function (0x8286E2C0, no caller, no pointer).
+unreferenced function (0x8286E2C0, no caller, no pointer). The crash-class audit of 2026-11-03 found a second dead gap
+of the same kind at 0x8286E518 (36 bytes: no data word, lis/addi pair or branch points at it); neither needs an entry.
 
 ## Things found on the way
 
