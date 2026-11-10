@@ -1,0 +1,22 @@
+ffxiii2-nx package rc6 (2026-11-06): build k229 (the same sources as the PC build k229pc that you confirmed).
+
+WHAT CHANGED SINCE rc5
+1. The flicker (D-008, and the Switch band D-003 shares its cause): the game binds its scene depth buffer and then
+   reuses the same surface description as a colour view for its post-processing; the renderer read the description too
+   late, so most frames drew the scene without its depth and the rest used a stale depth target (black, sky-only or
+   half-black frames, smoke missing in parts). The depth binding is now taken at bind time, as the Xbox 360 does
+   (ffxiii2_renut_stable_depth_surfaces = true), and D3D's tiling check recognises that copy as the tiled surface (else
+   the right half of the screen was cut). Confirmed on the PC by you: battle fixed, Serah drawn in New Bodhum.
+   ffxiii2_renut_stable_depth_surfaces = false in ffxiii2.toml brings the old behaviour back.
+2. Diagnostics added for testing (all off in this package): band/flicker trap, RenderDoc hooks (PC only), trace bursts.
+
+STILL OPEN
+- The opening cutscene: every other frame shows a different shot (your PC video 0:08-0:21; same build logic on the
+  Switch). Being worked on next.
+- Rare crash when the game is started right after it was closed (D-006).
+- Not yet tested on the Switch: whether the band (D-003) is gone there too.
+
+INSTALL: copy COPY_TO_SD_switch_ffxiii2-nx\ to sdmc:/switch/ffxiii2-nx/ (your saves in renut/ are not touched).
+ROLL BACK: the rc5 package (Works\builds\2026-11-06_1408_ffxiii2_rc5) is unchanged.
+Credits: reNut's renderer (its author permits reuse), katamari-nx, renut-nx, sa2-nx, NetherSX2_nx, battd_nx,
+bejeweled3-nx / zuma ports. GPL-3.0 where the sources are.

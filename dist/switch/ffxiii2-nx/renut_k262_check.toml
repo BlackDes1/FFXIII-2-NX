@@ -1,0 +1,22 @@
+# ffxiii2-nx (2026-11-08, k262): machine-copy round 2 checked and measured in one session: the copy guard on (the first
+# 64 calls of each thread and 1 in 4096 run copy and original and compare; a difference switches that copy off and
+# logs [hot] DIFFERENCE) and the in-run A/B of all bulk copies (target 20, 5 s halves). Overlay on. Test only.
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+input_test_merge_pads = true
+
+banjo_renut_dynamic_resolution = false
+
+ffxiii2_renut_compose_resolves = true
+
+log_level = "info"
+
+banjo_show_profiler = true
+banjo_hot_guard_calls = 64
+banjo_hot_guard_period = 4096
+banjo_renut_ab_target = 20
+banjo_renut_ab_s = 5
+
+log_file_writer = true

@@ -1,0 +1,48 @@
+{
+ "name": "walk_field",
+ "description": "In the field: left stick forward 4 s, back 4 s, a camera turn with the right stick, screenshots; for streaming hitches and the flicker bands. No menu, no save.",
+ "precondition": "Character controllable in a field (after title_continue).",
+ "steps": [
+  {
+   "do": "shot",
+   "name": "before"
+  },
+  {
+   "do": "stick",
+   "side": "LEFT",
+   "x": 0,
+   "y": 32767,
+   "s": 4
+  },
+  {
+   "do": "shot",
+   "name": "forward"
+  },
+  {
+   "do": "stick",
+   "side": "LEFT",
+   "x": 0,
+   "y": -32768,
+   "s": 4
+  },
+  {
+   "do": "stick",
+   "side": "RIGHT",
+   "x": 32767,
+   "y": 0,
+   "s": 2
+  },
+  {
+   "do": "shots",
+   "name": "turned",
+   "every": 1,
+   "n": 3
+  },
+  {
+   "do": "check_running"
+  },
+  {
+   "do": "collect"
+  }
+ ]
+}

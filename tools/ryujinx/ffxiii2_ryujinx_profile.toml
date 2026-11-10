@@ -1,0 +1,11 @@
+# ffxiii2-nx Ryujinx profiling run (work order 5.5, machine track): ffxiii2_ryujinx.toml plus the SDK's stack sampling
+# (1 kHz, logs/rex/rex_profile.log every 10 s; tools/switch_hot_bulk.py PROFILE ELF --min-samples 1 --merge).
+# An emulator profile qualifies machine copies only, never hand-written natives (docs/optimising-functions.md).
+update_data_root = "/switch/ffxiii2-nx/update"
+log_level = "info"
+log_file_writer = true
+input_xbox_layout = true
+input_script = "20:A,24:START,28:A,32:A,36:A,40:UP,43:A,60:START,62:BACK,64:A,80:START,82:BACK,84:A,100:START,102:BACK,104:A,120:A,130:A,140:START,142:BACK,144:A,160:A,170:A,180:START,182:BACK,184:A,200:A,210:A,220:A,230:A,240:A,250:A,260:A,270:A,300:START,302:BACK,304:A,330:START,332:BACK,334:A,360:A,390:A,420:A,450:A,480:A"
+nfsmw_captura_cada_s = 30
+nfsmw_captura_max = 60
+switch_profile_stacks = true

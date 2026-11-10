@@ -1,0 +1,26 @@
+ffxiii2-nx package rc1 (2026-11-05): the first console package of Final Fantasy XIII-2.
+
+WHAT IS IN THIS BUILD
+- Renut's renderer on deko3d (no NVK linked), the same picture as the PC build (pixel-identical defaults).
+- 209 hot-function copies (machine track, localized_bulk.txt): batch 1 (177, from Ryujinx r8 and PC prof1) and
+  batch 2 (32, from Ryujinx r10). Both verified on the PC with the guard on every call: verify2 177/177 reached,
+  118.4 M calls, 0 differences; verify3 209/209 reached, 127.6 M calls, 0 differences.
+- No hand-written natives yet, no PGO/LTO (pgo-lto.md: they come after your console profile).
+- NRO 65.7 MB, ELF 83.0 MB; heap at the renderer's start in Ryujinx: 3,202 MB free.
+
+TESTED IN RYUJINX (r11, the picture only; the console decides performance)
+- Boot, title, main menu, the Primer, the opening cutscene in 3D. 60 fps in the menus, 30 fps (the game's own cap)
+  in the cutscene, in the emulator.
+
+KNOWN ISSUES ON DEKO3D (Ryujinx)
+- The copyright line under the title is smeared; one credit reads "DIRECTOR / DIRECTOR"; a cyan panel appeared over
+  the title logo once. The Primer's picture box showed a whole sheet of button icons (to be compared with the PC).
+- On the PC build an intermittent stall at "New save data is required" was seen once.
+
+PLEASE TEST, IN THIS ORDER
+1. renut.toml (the default ffxiii2.toml): start, title, New Game, play until the first battle ends. Send
+   logs/renut_*.log (and rex_crash.log if there is one). Note whether the text issues above show on the console.
+2. renut_ab.toml as it is (target 10, the control): 4-5 minutes of the same stretch. Send the log.
+3. renut_profile.toml: 5-10 minutes (title, a field with effects, a battle). Send sdmc:/switch/rex_profile.log and the
+   log. This profile decides the hand-written functions (the first candidate: the effect thread's spin barrier) and
+   is the input of the PGO/LTO build.

@@ -1,0 +1,58 @@
+{
+ "name": "title_continue",
+ "description": "From the title screen: A, then the first menu item (CONTINUE, loads the newest save; rc4 console + Ryujinx r19), load, 60 s in the field. Never saves.",
+ "precondition": "The game shows the title screen (run boot_to_title first). Uses the user's existing saves read-only: no menu that writes is opened.",
+ "steps": [
+  {
+   "do": "shot",
+   "name": "title"
+  },
+  {
+   "do": "click",
+   "button": "A"
+  },
+  {
+   "do": "wait",
+   "s": 4
+  },
+  {
+   "do": "shot",
+   "name": "main_menu"
+  },
+  {
+   "do": "click",
+   "button": "A"
+  },
+  {
+   "do": "wait",
+   "s": 4
+  },
+  {
+   "do": "shot",
+   "name": "after_continue"
+  },
+  {
+   "do": "shots",
+   "name": "loading",
+   "every": 10,
+   "n": 6
+  },
+  {
+   "do": "check_running"
+  },
+  {
+   "do": "wait",
+   "s": 60
+  },
+  {
+   "do": "shot",
+   "name": "field_60s"
+  },
+  {
+   "do": "check_running"
+  },
+  {
+   "do": "collect"
+  }
+ ]
+}

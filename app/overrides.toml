@@ -1,0 +1,3 @@
+# ffxiii2-nx: codegen overrides of Final Fantasy XIII-2 (switch tables, indirect calls, share_registers), each with
+# its evidence. Katamari's entries are removed: they were Beautiful Katamari's addresses.
+indirect_calls = []

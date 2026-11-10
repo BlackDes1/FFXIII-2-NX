@@ -1,0 +1,42 @@
+{
+ "name": "load_save01",
+ "description": "Load screen: A on Save Data 01, A on the confirmation, screenshots into the game (read only)",
+ "steps": [
+  {
+   "do": "click",
+   "button": "A"
+  },
+  {
+   "do": "wait",
+   "s": 3
+  },
+  {
+   "do": "shot",
+   "name": "confirm"
+  },
+  {
+   "do": "click",
+   "button": "A"
+  },
+  {
+   "do": "wait",
+   "s": 5
+  },
+  {
+   "do": "shot",
+   "name": "loading"
+  },
+  {
+   "do": "shots",
+   "name": "scene",
+   "every": 10,
+   "n": 9
+  },
+  {
+   "do": "check_running"
+  },
+  {
+   "do": "collect"
+  }
+ ]
+}

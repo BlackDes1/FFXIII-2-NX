@@ -1,0 +1,19 @@
+ffxiii2-nx package rc7 (2026-11-07): build k234 (the PC build k234pc sources).
+
+WHAT CHANGED SINCE rc6
+1. Same fixes as rc6 (D-008 flicker: depth binding taken at bind time, tiling check by origin), confirmed by you on
+   the PC (battle fixed, Serah drawn in New Bodhum).
+2. Diagnostics for the opening cutscene (all off in this package, the picture is unchanged): draw call chains per
+   frame, the game's pass-1 list counts, renderer draw exits.
+
+STILL OPEN
+- The opening cutscene: Lightning's face is drawn every other frame (0:08-0:21). The game code itself leaves her out
+  on those frames, the same on both renderers; you confirmed the Xbox 360 is steady, so the fault is in the
+  recompiled game code. Being worked on next.
+- Rare crash when the game is started right after it was closed (D-006).
+- Not yet tested on the Switch: whether the band (D-003) is gone there too.
+
+INSTALL: copy COPY_TO_SD_switch_ffxiii2-nx\ to sdmc:/switch/ffxiii2-nx/ (your saves in renut/ are not touched).
+ROLL BACK: the rc6 package (Works\builds\2026-11-06_2013_ffxiii2_rc6) is unchanged.
+Credits: reNut's renderer (its author permits reuse), katamari-nx, renut-nx, sa2-nx, NetherSX2_nx, battd_nx,
+bejeweled3-nx / zuma ports. GPL-3.0 where the sources are.

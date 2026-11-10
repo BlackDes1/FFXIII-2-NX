@@ -1,0 +1,2 @@
+# ffxiii2-nx: empty until this game's profiles (Katamari's list removed: its addresses are another game's functions;
+# optimising-functions.md, "Stale mentions"). Format: see katamari-nx.

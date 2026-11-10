@@ -1,0 +1,51 @@
+{
+ "name": "menu_start_continue",
+ "description": "Title menu: START (menu active), A on CONTINUE, screenshots of what follows",
+ "steps": [
+  {
+   "do": "click",
+   "button": "PLUS"
+  },
+  {
+   "do": "wait",
+   "s": 3
+  },
+  {
+   "do": "shot",
+   "name": "after_start"
+  },
+  {
+   "do": "click",
+   "button": "A"
+  },
+  {
+   "do": "wait",
+   "s": 4
+  },
+  {
+   "do": "shot",
+   "name": "after_a"
+  },
+  {
+   "do": "click",
+   "button": "A"
+  },
+  {
+   "do": "wait",
+   "s": 4
+  },
+  {
+   "do": "shot",
+   "name": "after_a2"
+  },
+  {
+   "do": "shots",
+   "name": "load",
+   "every": 10,
+   "n": 6
+  },
+  {
+   "do": "check_running"
+  }
+ ]
+}

@@ -1,0 +1,30 @@
+# ffxiii2-nx (2026-11-07, the 30 fps work at the default handheld clocks; docs/diagnostics/PERF_30FPS.md): the player's
+# ffxiii2.toml for the optimised build (PGO + LTO, native copies of the battle's hot functions).
+#   - Dynamic resolution (renut-nx's design): the 3D image at 720, 612 or 540 lines, whichever keeps the GPU under 30 ms
+#     a frame. NOT pixel-identical (the user's call, 2026-11-07).
+#   - Shader work off the game's cores (item 5): the pipeline prebuild worker and the ring cleaner on core 3 (about
+#     half idle in battle) instead of core 2, which the main thread shares.
+#   - The performance overlay: hold L3 + R3 (both stick clicks) to show / hide it (FPS, frame times, GPU, render height).
+# Credits: reNut's renderer (masterspike52, reuse permitted), banjo-nx, katamari-nx, renut-nx (dynamic resolution),
+# sa2-nx (PGO / LTO, native copies), bejeweled3-nx (bulk copies), NetherSX2_nx (four-core layout), battd_nx, kameo-nx,
+# nfsmw-nx (perfil_pilas) and the zuma ports. GPL-3.0.
+
+# Language: 1 = English, 2 = Japanese, 3 = German, 4 = French, 5 = Spanish, 6 = Italian.
+user_language = 1
+# Face buttons: false = by letter (the Switch's A acts as A), true = by position, as on an Xbox pad (bottom = A).
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+
+banjo_renut_dynamic_resolution = true
+banjo_renut_dynamic_resolution_handheld_mid = 612
+banjo_renut_dynamic_resolution_handheld_low = 540
+banjo_renut_dynamic_resolution_gpu_ms = 30.0
+
+banjo_background_compile_core = 3
+
+banjo_profiler_pad_toggle = true
+
+# Logs to sdmc:/switch/ffxiii2-nx/logs (frame rate, render thread, GPU time and render height every 10 s).
+log_level = "info"
+log_file_writer = true

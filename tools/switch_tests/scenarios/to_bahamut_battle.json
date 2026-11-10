@@ -1,0 +1,138 @@
+{
+ "name": "to_bahamut_battle",
+ "description": "After a (re)start: title -> START -> CONTINUE -> Save Data 01 (read; the game autosaves later: saves backed up 2026-11-05 19:07) -> cutscene skips -> Chaos Bahamut battle tutorial -> 60 screenshots for flicker_metric.py",
+ "steps": [
+  {
+   "do": "wait",
+   "s": 35
+  },
+  {
+   "do": "shot",
+   "name": "press_any"
+  },
+  {
+   "do": "click",
+   "button": "A"
+  },
+  {
+   "do": "wait",
+   "s": 32
+  },
+  {
+   "do": "shot",
+   "name": "title_menu"
+  },
+  {
+   "do": "click",
+   "button": "PLUS"
+  },
+  {
+   "do": "wait",
+   "s": 3
+  },
+  {
+   "do": "click",
+   "button": "A"
+  },
+  {
+   "do": "wait",
+   "s": 6
+  },
+  {
+   "do": "shot",
+   "name": "load_screen"
+  },
+  {
+   "do": "click",
+   "button": "A"
+  },
+  {
+   "do": "wait",
+   "s": 3
+  },
+  {
+   "do": "click",
+   "button": "A"
+  },
+  {
+   "do": "wait",
+   "s": 15
+  },
+  {
+   "do": "shot",
+   "name": "data_loaded"
+  },
+  {
+   "do": "click",
+   "button": "A"
+  },
+  {
+   "do": "wait",
+   "s": 8
+  },
+  {
+   "do": "shot",
+   "name": "autosave_notice"
+  },
+  {
+   "do": "click",
+   "button": "A"
+  },
+  {
+   "do": "wait",
+   "s": 8
+  },
+  {
+   "do": "seq",
+   "seq": "PLUS,W2000,MINUS,W2000,A"
+  },
+  {
+   "do": "wait",
+   "s": 10
+  },
+  {
+   "do": "seq",
+   "seq": "PLUS,W2000,MINUS,W2000,A"
+  },
+  {
+   "do": "wait",
+   "s": 10
+  },
+  {
+   "do": "seq",
+   "seq": "PLUS,W2000,MINUS,W2000,A"
+  },
+  {
+   "do": "wait",
+   "s": 10
+  },
+  {
+   "do": "seq",
+   "seq": "PLUS,W2000,MINUS,W2000,A"
+  },
+  {
+   "do": "wait",
+   "s": 10
+  },
+  {
+   "do": "shot",
+   "name": "battle_start"
+  },
+  {
+   "do": "seq",
+   "seq": "A,W2500,A,W2500,A,W2500,A,W2500,A,W2500"
+  },
+  {
+   "do": "shots",
+   "name": "battle",
+   "every": 0,
+   "n": 60
+  },
+  {
+   "do": "check_running"
+  },
+  {
+   "do": "collect"
+  }
+ ]
+}

@@ -1,0 +1,16 @@
+# ffxiii2-nx: the console profiling run (hot functions and PGO, docs/pgo-lto.md). renut.toml plus the SDK's stack
+# sampling (1 kHz, every thread): sdmc:/switch/rex_profile.log, written every 10 s. Play the usual stretch (title,
+# a field, a battle) for 5-10 minutes, then send sdmc:/switch/rex_profile.log and logs/renut_*.log. The sampler costs
+# frame rate while it runs: use renut.toml or renut_play.toml for anything else.
+# Copy it next to the NRO as ffxiii2.toml (sdmc:/switch/ffxiii2-nx/ffxiii2.toml).
+# Credits: reNut's renderer (masterspike52, reuse permitted), banjo-nx, katamari-nx, renut-nx, sa2-nx, NetherSX2_nx,
+# battd_nx, bejeweled3-nx and the zuma ports.
+
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+
+log_level = "info"
+log_file_writer = true
+switch_profile_stacks = true

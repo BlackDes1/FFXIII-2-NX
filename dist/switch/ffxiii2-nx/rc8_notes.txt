@@ -1,0 +1,20 @@
+ffxiii2-nx package rc8 (2026-11-07): build k238 (the same sources as the PC build k238pc).
+
+WHAT CHANGED SINCE rc7
+1. The opening cutscene (D-009): Lightning's face no longer drops out every other frame (your video 0:08-0:21).
+   Cause: in the recompiled game code, the vector max / min instructions (vmaxfp / vminfp) gave the x86 answer for a
+   NaN (the other operand) instead of the Xbox 360's (a NaN). The game's visibility tree builds each node's bounding box
+   with a running max / min over its objects; one object there has a NaN box, so the box restarted without the face
+   on every other frame and the face was culled. Now the 360's results (also +0 / -0 the 360's way), for every
+   vmaxfp / vminfp in the game (1,026 places, 180 in the hand-tuned copies).
+   PC check: 600 intro frames, 0 flicker frames (was 72); 1,500 battle frames, 0 drop-outs.
+2. Same fixes as rc7 (battle flicker D-008, depth binding at bind time).
+
+STILL OPEN
+- Rare crash when the game is started right after it was closed (D-006).
+- Not yet tested on the Switch: whether the band (D-003) is gone there too.
+
+INSTALL: copy COPY_TO_SD_switch_ffxiii2-nx\ to sdmc:/switch/ffxiii2-nx/ (your saves in renut/ are not touched).
+ROLL BACK: rc7 (Works\builds\2026-11-07_0256_ffxiii2_rc7) and rc6 are unchanged.
+Credits: reNut's renderer (its author permits reuse), katamari-nx, renut-nx, sa2-nx, NetherSX2_nx, battd_nx,
+bejeweled3-nx / zuma ports. GPL-3.0 where the sources are.

@@ -1,0 +1,9 @@
+# z0070: functions the automatic discovery misses. Every entry carries its evidence.
+[functions]
+# The CRT memcpy (hand-written, no .pdata entry): 0x88814418..0x888144BF, from "addi r0,r5,1; ori r6,r3,0;
+# mtctr r0" to its unaligned-word loop whose tail "b 0x8881446C" (at 0x888144BC) branches back into the function;
+# the next word, 0x888144C0, is data (01 00 01 a5). Without the whole range codegen reports
+# "0x8881446C from 0x888144BC - target not in any function" (codegen_z0070.log, 2026-11-02). The same bytes sit at
+# 0x888696F8 in z0130, 0x88818988 in z0161 and 0x82B506B8 in default.xex, where codegen already covers them whole
+# (tail is a goto inside the function). Same address as the USA build's hint (leftisthominid/ffxiii-2-port).
+0x88814418 = { size = 168 }

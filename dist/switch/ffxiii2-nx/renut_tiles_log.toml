@@ -1,0 +1,22 @@
+# ffxiii2-nx (2026-11-06): D-003 test (docs/diagnostics/BUGS.md): the band is a strip of rows 336-384 of the whole
+# image. [tiles]: every predicated tile layout the game sets; [strips]: draws whose scissor or viewport covers only part
+# of the target's rows. Same picture as renut.toml apart from the frame stamp in the bottom-left corner.
+# Credits: reNut's renderer (masterspike52, reuse permitted), banjo-nx, katamari-nx, renut-nx, sa2-nx, NetherSX2_nx,
+# battd_nx, bejeweled3-nx and the zuma ports.
+
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+
+log_level = "info"
+log_file_writer = true
+log_file_reopen = true
+banjo_profiler_pad_toggle = true
+banjo_profiler_pad_combo = "L3+R3"
+input_shared_players = true
+
+ffxiii2_diag_tiles_log = true
+# Frame Tap recording matched to the log: uncompressed swapchain, and the frame number in the bottom-left corner.
+ffxiii2_swapchain_compression = false
+ffxiii2_diag_frame_stamp = true

@@ -1,0 +1,66 @@
+# Final Fantasy XIII-2 for the Switch: the fixed settings, compiled into the NRO (app/CMakeLists.txt, src/renut_app.h
+# BuiltInConfig) and applied before the SD card's ffxiii2.toml, which holds the player's options (app/ffxiii2_switch.toml;
+# a key added there still overrides these: test runs). ffxiii2-nx (2026-11-04): only what differs from the PC runs' cvar
+# defaults (the tested state, docs/ffxiii2-nx.md) plus the Switch's renderer backend. katamari-nx's list (its native
+# copies at Katamari's addresses, SMAA, fur shells, 720p handheld render height) is not carried over: those are that
+# game's measured enhancements, and anything that changes the picture is a separate config.
+gpu_plugin = ""
+banjo_renderer = "renut"
+renut_gpu_backend = "deko3d"
+log_level = "off"
+log_file_writer = false
+switch_software_keyboard = true
+banjo_show_profiler = false
+banjo_show_fps = false
+banjo_stall_watch_seconds = 0
+switch_profile_stacks = false
+banjo_cpu_profiler = false
+
+# ffxiii2-nx (2026-11-05): banjo-nx's pushed uniform buffers (banjo_deko3d_push_constants) break FF's UI on deko3d:
+# dynamic text, the battle HUD's gauges and the save screen's render-to-texture thumbnails come out garbled (console rc1,
+# Ryujinx r11). Ryujinx bisection: all 20 default-on deko3d keys off -> right (safe1); groups g1/g2/g4 off -> still
+# wrong; group g3 off -> right; draw_resolves alone off -> wrong (s_dr); push_constants alone off -> right (s_pc). Its
+# float-constant verify finds no wrong register (pcverify), so the fault is in the shared block or the update ordering:
+# root cause open (docs/docs-notes.md). Off until then: the ring uploads, as the PC (correctness before speed).
+banjo_deko3d_push_constants = false
+
+# ffxiii2-nx (2026-11-05, live Switch testing): the profiler window stays off in every release config; only
+# dist/switch/ffxiii2-nx/renut_dev.toml turns the L3+R3 toggle on.
+banjo_profiler_pad_toggle = false
+
+# ffxiii2-nx (2026-11-05, live console profile): the native copies of hot game functions are called directly, without
+# the guard (each guarded call ran the copy and the recompiled original and compared them; on the main thread that was
+# about 5% of its samples: the written ranges sorted, every call run twice). The guard found 0 differences in 21,209
+# compared calls on the console (k163) and in the PC verify runs (docs/ffxiii2-nx.md). katamari-nx ships the same.
+# Same results; banjo_hot_guard_calls / _period in ffxiii2.toml turn it back on for a check.
+banjo_hot_guard_calls = 0
+banjo_hot_guard_period = 0
+
+# FFXIII-2-Native-Switch (2026-11-08): the machine-copy list is retired in this project (args_in_registers' fast entries
+# replace it), and the round-2 list crashes at boot in every build (prototypes/P1_abi_lifted_codegen/RESULTS.md).
+banjo_cpu_native_bulk = false
+
+# FFXIII-2-Native-Switch (2026-11-09, thread placement, the user's go-ahead): in four-core mode the XMA Decoder runs on
+# the system core 3 (it ran at 0x2B, above the game threads, on cores 0-2 and preempted them). Console A/B, New Bodhum
+# field, 8 runs against 4: -3.5 ms +- 1.0 a frame (about +6 % fps), main thread CPU 84 -> 89 %, core 3 idle 53 -> 31 %,
+# 0 audio requests without data. With the usual three cores this key has no effect. Adding banjo_system_core = 2 on top
+# gave nothing measurable (-0.6 +- 0.8 ms) and takes more of core 3: not set.
+banjo_system_core_xma = true
+
+# FFXIII-2-Native-Switch P6 (2026-11-09, the user: non-exact changes allowed for 30 fps; items 1 and 5 approved). NOT
+# pixel-identical. Dynamic resolution as one fixed render height for the session (612 lines): level changes during play
+# broke the battle picture once on the console (prototypes/P6_non_exact/RESULTS.md); fixed 612 stayed right in the field
+# and the battle; GPU 34.4 -> ~28.5 ms in New Bodhum. Switch back: banjo_renut_dynamic_resolution = false.
+banjo_renut_dynamic_resolution = true
+banjo_renut_dynamic_resolution_handheld_mid = 612
+banjo_renut_dynamic_resolution_handheld_low = 540
+ffns_dynres_fixed_height = 612
+# FF's second (larger) shadow map every second frame (its texture keeps the last map in between): about -1.3 ms a
+# frame in New Bodhum. Switch back: ffns_shadow_far_every = 1.
+ffns_shadow_far_every = 2
+
+# FFXIII-2-Native-Switch (2026-11-10, the options menu, Start + Select): SMAA's place in FF XIII-2's frame: right after
+# the final composite (pixel shader A2FBF0ABD9576D65: the full-screen pass after the bloom chain, before the HUD; PC trace
+# ffns_diag_ps_trace_s). SMAA itself stays off unless the player turns it on (banjo_renut_smaa). NOT pixel-identical on.
+banjo_renut_smaa_after_ps = "A2FBF0ABD9576D65"
+banjo_renut_smaa = false

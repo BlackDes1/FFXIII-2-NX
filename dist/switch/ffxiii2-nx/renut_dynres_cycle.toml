@@ -1,0 +1,23 @@
+# ffxiii2-nx (2026-11-07, k246): rc8's ffxiii2.toml + dynamic resolution in its test cycle (720, 612, 540 lines, 20 s
+# each) with the GPU profile every 10 s: the cost of each height in the same battle, and pictures of each. Dynamic
+# resolution is NOT pixel-identical (the user allowed it, 2026-11-07). input_test_merge_pads: the test controller counts
+# for player 1. Not for normal play.
+# Credits: reNut's renderer (masterspike52, reuse permitted), banjo-nx, katamari-nx, renut-nx (dynamic resolution's
+# design), sa2-nx, NetherSX2_nx, battd_nx, bejeweled3-nx and the zuma ports.
+
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+input_test_merge_pads = true
+
+banjo_renut_dynamic_resolution = true
+banjo_renut_dynamic_resolution_handheld_mid = 612
+banjo_renut_dynamic_resolution_handheld_low = 540
+banjo_renut_dynamic_resolution_test_s = 20.0
+
+renut_gpu_profile = 10.0
+banjo_renut_diag_gpu_shaders = true
+
+log_level = "info"
+log_file_writer = true

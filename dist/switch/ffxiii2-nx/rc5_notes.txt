@@ -1,0 +1,21 @@
+ffxiii2-nx package rc5 (2026-11-06): build k217.
+
+WHAT CHANGED SINCE rc4
+1. Audio works (music and effects): the game's 16 ms sound timer never fired on the Switch (an absolute due time of 0
+   was never reached); it now fires as on the Xbox 360 (confirmed by you on the console, k196).
+2. Shadows (D-007): the game reuses its scene surface descriptions for the two shadow maps and the bloom chain and
+   rewrites them between draws; the renderer read them too late, so the first shadow map got nothing and the second
+   was drawn into the scene's depth (right in only ~20 % of battle frames). Now both shadow maps are right in every
+   frame. This changes the picture (correct shadows and bloom). ffxiii2_renut_stable_rewritten_surfaces = false in
+   ffxiii2.toml brings the old behaviour back.
+3. Shader cache rc9 (505 MB): no shader compile a draw waits for in the battle.
+4. Diagnostics added for testing (all off in this package): Frame Tap support (ffxiii2_swapchain_compression), frame
+   stamp, surface traces. Nothing of them is active in ffxiii2.toml.
+
+STILL OPEN
+- The horizontal band at y ~336 in some battle frames (D-003): narrowed to the scene pass, not fixed yet.
+- Rare crash when the game is started right after it was closed (D-006).
+
+INSTALL: copy COPY_TO_SD_switch_ffxiii2-nx\ to sdmc:/switch/ffxiii2-nx/ (your saves in renut/ are not touched).
+Credits: reNut's renderer (its author permits reuse), katamari-nx, renut-nx, sa2-nx, NetherSX2_nx, battd_nx,
+bejeweled3-nx and the zuma ports; GPL-3.0 where the sources are.

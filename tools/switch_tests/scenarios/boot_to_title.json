@@ -1,0 +1,31 @@
+{
+ "name": "boot_to_title",
+ "description": "Start the NRO, wait for its renut log, screenshots of logos and title screen, logs. No input to the game.",
+ "precondition": "launch_sequence recorded in switch_test_config.json (else start the game by hand when asked).",
+ "steps": [
+  {
+   "do": "launch",
+   "timeout": 120
+  },
+  {
+   "do": "shots",
+   "name": "boot",
+   "every": 5,
+   "n": 6
+  },
+  {
+   "do": "check_running"
+  },
+  {
+   "do": "wait",
+   "s": 15
+  },
+  {
+   "do": "shot",
+   "name": "title"
+  },
+  {
+   "do": "collect"
+  }
+ ]
+}

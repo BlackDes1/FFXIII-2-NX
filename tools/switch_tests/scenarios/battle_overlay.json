@@ -1,0 +1,40 @@
+{
+ "name": "battle_overlay",
+ "description": "Bahamut battle: skip the tutorial, open the profiler window (L3+R3), screenshots of it while idle and while attacking (A = Auto-battle)",
+ "steps": [
+  {
+   "do": "seq",
+   "seq": "DD,W600,A,W3000"
+  },
+  {
+   "do": "shot",
+   "name": "skipped"
+  },
+  {
+   "do": "seq",
+   "seq": "+LSTICK,+RSTICK,W700,-LSTICK,-RSTICK,W1500"
+  },
+  {
+   "do": "shots",
+   "name": "overlay",
+   "every": 4,
+   "n": 8
+  },
+  {
+   "do": "seq",
+   "seq": "A,W3000,A,W3000,A,W3000"
+  },
+  {
+   "do": "shots",
+   "name": "overlay_fight",
+   "every": 4,
+   "n": 6
+  },
+  {
+   "do": "check_running"
+  },
+  {
+   "do": "collect"
+  }
+ ]
+}

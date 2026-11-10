@@ -1,0 +1,22 @@
+# ffxiii2-nx: the in-run A/B CONTROL (performance is judged on the console only). renut.toml plus Renut's in-run A/B: the
+# part banjo_renut_ab_target names is switched off and on every banjo_renut_ab_s seconds (30 s halves), and the
+# "[renut A/B]" line in the log every 10 s gives both halves' frame rate, render thread and GPU time under the same
+# scenes. Target 10 does nothing (a removed part): the CONTROL run. Its two halves should match; the gap between them
+# is the noise floor any real A/B has to beat.
+# To test a part: set banjo_renut_ab_target to its number (the list: banjo_renut_ab_target's help text, or
+# README.txt), play the same stretch for at least 4 minutes (8 halves), send logs/renut_*.log.
+# Copy it next to the NRO as ffxiii2.toml (sdmc:/switch/ffxiii2-nx/ffxiii2.toml).
+# Credits: reNut's renderer (masterspike52, reuse permitted), banjo-nx, katamari-nx, renut-nx, sa2-nx, NetherSX2_nx,
+# battd_nx, bejeweled3-nx and the zuma ports.
+
+# Language: 1 = English, 2 = Japanese, 3 = German, 4 = French, 5 = Spanish, 6 = Italian.
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+
+log_level = "info"
+log_file_writer = true
+
+banjo_renut_ab_target = 10
+banjo_renut_ab_s = 30

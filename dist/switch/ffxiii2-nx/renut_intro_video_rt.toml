@@ -1,0 +1,19 @@
+# ffxiii2-nx (2026-11-07, k239s, the Switch opening's stale frames): renut_intro_video.toml plus the renderer frame
+# number stamped in the bottom-left corner (changes the picture: diagnostic only) and one [rtlog] line per frame (render
+# targets in draw order, resolves, clears) from 140 s, so each captured frame of video_145s.rgba is matched to what the
+# renderer drew and resolved in it. A diagnostic session, not a benchmark.
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+log_level = "info"
+log_file_writer = true
+log_file_reopen = true
+ffxiii2_diag_pass_counts = true
+input_shared_players = true
+banjo_video_s = 145
+banjo_video_frames = 300
+banjo_video_half = true
+ffxiii2_diag_frame_stamp = true
+ffxiii2_diag_rt_start_s = 140
+ffxiii2_diag_rt_frames = 3000

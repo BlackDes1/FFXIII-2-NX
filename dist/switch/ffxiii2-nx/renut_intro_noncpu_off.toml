@@ -1,0 +1,15 @@
+# ffxiii2-nx (2026-11-07, k239m, the Switch intro's black frames): renut.toml with the non-CPU (GPU, driver,
+# storage) enhancements' master switch off, plus the pass-1 counts and every controller as player 1 (remote test).
+# Black frames gone with this = one of the GPU-side enhancements; still there = the deko3d renderer itself.
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+log_level = "info"
+log_file_writer = true
+log_file_reopen = true
+ffxiii2_diag_pass_counts = true
+input_shared_players = true
+banjo_noncpu_enhancements = false
+# k239p: screenshots read the presented image only uncompressed
+ffxiii2_swapchain_compression = false

@@ -1,0 +1,145 @@
+{
+ "name": "pc_sequence_opening_battle",
+ "description": "The sequence of the PC/Ryujinx runs (title -> main menu -> New Game -> opening -> first battle, Chaos Bahamut), console timing unknown: screenshot after every phase. Reaches the post-Bahamut stall area.",
+ "precondition": "Fresh start at the title screen. New Game does not write a save by itself; the sequence never opens the save menu. Timings come from the PC (tools/ryujinx/ffxiii2_ryujinx.toml) and must be checked on the console's screenshots.",
+ "steps": [
+  {
+   "do": "click",
+   "button": "A"
+  },
+  {
+   "do": "wait",
+   "s": 4
+  },
+  {
+   "do": "click",
+   "button": "PLUS"
+  },
+  {
+   "do": "wait",
+   "s": 4
+  },
+  {
+   "do": "click",
+   "button": "A"
+  },
+  {
+   "do": "wait",
+   "s": 4
+  },
+  {
+   "do": "click",
+   "button": "A"
+  },
+  {
+   "do": "wait",
+   "s": 4
+  },
+  {
+   "do": "click",
+   "button": "A"
+  },
+  {
+   "do": "wait",
+   "s": 4
+  },
+  {
+   "do": "shot",
+   "name": "menu"
+  },
+  {
+   "do": "click",
+   "button": "DUP"
+  },
+  {
+   "do": "wait",
+   "s": 3
+  },
+  {
+   "do": "click",
+   "button": "A"
+  },
+  {
+   "do": "wait",
+   "s": 17
+  },
+  {
+   "do": "shot",
+   "name": "opening"
+  },
+  {
+   "do": "seq",
+   "seq": "PLUS,W2000,MINUS,W2000,A"
+  },
+  {
+   "do": "wait",
+   "s": 16
+  },
+  {
+   "do": "seq",
+   "seq": "PLUS,W2000,MINUS,W2000,A"
+  },
+  {
+   "do": "wait",
+   "s": 16
+  },
+  {
+   "do": "seq",
+   "seq": "PLUS,W2000,MINUS,W2000,A"
+  },
+  {
+   "do": "wait",
+   "s": 16
+  },
+  {
+   "do": "shot",
+   "name": "cutscenes"
+  },
+  {
+   "do": "seq",
+   "seq": "A,W10000,A,W10000"
+  },
+  {
+   "do": "seq",
+   "seq": "PLUS,W2000,MINUS,W2000,A"
+  },
+  {
+   "do": "wait",
+   "s": 16
+  },
+  {
+   "do": "seq",
+   "seq": "A,W10000,A,W10000"
+  },
+  {
+   "do": "seq",
+   "seq": "PLUS,W2000,MINUS,W2000,A"
+  },
+  {
+   "do": "wait",
+   "s": 16
+  },
+  {
+   "do": "shots",
+   "name": "battle",
+   "every": 10,
+   "n": 6
+  },
+  {
+   "do": "seq",
+   "seq": "A,W10000,A,W10000,A,W10000,A,W10000,A,W10000,A,W10000,A,W10000,A"
+  },
+  {
+   "do": "shots",
+   "name": "after_battle",
+   "every": 10,
+   "n": 6
+  },
+  {
+   "do": "check_running"
+  },
+  {
+   "do": "collect"
+  }
+ ]
+}

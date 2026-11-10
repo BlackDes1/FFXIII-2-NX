@@ -1,0 +1,21 @@
+# ffxiii2-nx (2026-11-08, k263): console check of k263 (round-2 copies, the broken copy 828FB3E8 out, mutant releases
+# without a wake syscall when nobody waits): k257 baseline keys + overlay + the copy guard + the stack sampler for this
+# run only. Test only.
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+input_test_merge_pads = true
+
+banjo_renut_dynamic_resolution = false
+
+ffxiii2_renut_compose_resolves = true
+
+log_level = "info"
+
+banjo_show_profiler = true
+banjo_hot_guard_calls = 64
+banjo_hot_guard_period = 4096
+switch_profile_stacks = true
+
+log_file_writer = true

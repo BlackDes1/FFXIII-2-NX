@@ -1,0 +1,18 @@
+# ffxiii2-nx (2026-11-07, k239u, the Switch opening's stale frames): k239s's [rtlog] showed frames whose post-process
+# draws into 6CB07E60 (colour view, EDRAM 2D0) never reach the renderer (no draw exit counted) while their resolves do,
+# so the frame shows an older picture. Does the game issue those draws? Every draw's guest call chain per swap for 300
+# swaps of the real-time opening (capturas/draw_chains.txt), plus the pass-1 counts and [rtlog] for the same frames.
+# Diagnostic session (every controller as player 1 for the remote test).
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+log_level = "info"
+log_file_writer = true
+log_file_reopen = true
+ffxiii2_diag_pass_counts = true
+input_shared_players = true
+ffxiii2_diag_draw_chains_at = 4150
+ffxiii2_diag_draw_chains_frames = 300
+ffxiii2_diag_rt_start_s = 140
+ffxiii2_diag_rt_frames = 3000

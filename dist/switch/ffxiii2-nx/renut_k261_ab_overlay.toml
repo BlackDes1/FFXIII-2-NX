@@ -1,0 +1,19 @@
+# ffxiii2-nx (2026-11-08, k261): what the profiler overlay costs, in one session: banjo_show_profiler on in one half, off
+# in the other, every 5 s (banjo_renut_ab_target 22). k257 baseline settings otherwise. Measurement only.
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+input_test_merge_pads = true
+
+banjo_renut_dynamic_resolution = false
+
+ffxiii2_renut_compose_resolves = true
+
+log_level = "info"
+
+banjo_show_profiler = true
+banjo_renut_ab_target = 22
+banjo_renut_ab_s = 5
+
+log_file_writer = true

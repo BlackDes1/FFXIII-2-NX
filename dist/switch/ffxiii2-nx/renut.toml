@@ -1,0 +1,17 @@
+# ffxiii2-nx (Final Fantasy XIII-2 on the Switch, Renut's renderer on deko3d): the test settings, logs on.
+# Copy it next to the NRO as ffxiii2.toml (sdmc:/switch/ffxiii2-nx/ffxiii2.toml), the only toml the NRO reads; every
+# other setting is built into the NRO (app/ffxiii2_switch_defaults.toml). The picture is the PC's (pixel-identical
+# defaults); the hot-function copies (localized_bulk.txt, verified 0 differences on the PC) are on.
+# Credits: reNut's renderer (masterspike52, reuse permitted), banjo-nx, katamari-nx, renut-nx, sa2-nx, NetherSX2_nx,
+# battd_nx, bejeweled3-nx and the zuma ports.
+
+# Language: 1 = English, 2 = Japanese, 3 = German, 4 = French, 5 = Spanish, 6 = Italian.
+user_language = 1
+# Face buttons: false = by letter (the Switch's A acts as A), true = by position, as on an Xbox pad (bottom = A).
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+
+# Logs to sdmc:/switch/ffxiii2-nx/logs (frame rate, render thread and GPU time every 10 s).
+log_level = "info"
+log_file_writer = true

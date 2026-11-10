@@ -1,0 +1,30 @@
+{
+ "name": "first_remote_launch",
+ "description": "A on the selected FF XIII-2 HOME tile, wait for the boot log, screenshots",
+ "steps": [
+  {
+   "do": "shot",
+   "name": "tile"
+  },
+  {
+   "do": "click",
+   "button": "A"
+  },
+  {
+   "do": "wait_new_log",
+   "timeout": 150
+  },
+  {
+   "do": "shots",
+   "name": "boot",
+   "every": 12,
+   "n": 6
+  },
+  {
+   "do": "check_running"
+  },
+  {
+   "do": "collect"
+  }
+ ]
+}

@@ -1,0 +1,19 @@
+# ffxiii2-nx (2026-11-05): deko3d text/HUD bisection, group g1: only these deko3d enhancements off (safe1 had all 20 off
+# and rendered the text right).
+# ffxiii2-nx Ryujinx test settings: the player's ffxiii2.toml slot (every key here overrides the built-in ones).
+# tools/ryujinx_run.ps1 -Toml tools\ryujinx\ffxiii2_ryujinx.toml copies it to the SD folder.
+update_data_root = "/switch/ffxiii2-nx/update"
+log_level = "info"
+log_file_writer = true
+input_xbox_layout = true
+# The PC's sequence (title -> main menu -> New Game / Continue -> opening -> first battle), pressed by the SDK.
+input_script = "20:A,24:START,28:A,32:A,36:A,40:UP,43:A,60:START,62:BACK,64:A,80:START,82:BACK,84:A,100:START,102:BACK,104:A,120:A,130:A,140:START,142:BACK,144:A,160:A,170:A,180:START,182:BACK,184:A,200:A,210:A,220:A,230:A,240:A,250:A,260:A,270:A"
+# Captures every 15 s (the work order), next to the NRO in captures\.
+nfsmw_captura_cada_s = 15
+nfsmw_captura_max = 60
+
+banjo_deko3d_uam_prmt = false
+banjo_deko3d_uam_gvn = false
+banjo_deko3d_uam_uniform_branches = false
+banjo_deko3d_uam_wide_rows = false
+banjo_deko3d_early_hoist = false

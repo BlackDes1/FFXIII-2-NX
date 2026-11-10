@@ -1,0 +1,5 @@
+# z0130: functions the automatic discovery misses. Every entry carries its evidence.
+[functions]
+# Pointer-only (tools/local/ptrscan.py, 2026-11-02): vtable slot at 0x8880F588 (.rdata, +1 more) -> code in the .pdata
+# gap right after the CRT memcpy (0x888696F8+168): lwz r3,4(r3); cmplwi; bclr; lis/addi r3 (a string); blr.
+0x888697A0 = { size = 24 } # pointer-only: pointer stored at 0x8880F588 (.rdata) (+1 more); code to the unconditional exit inside .pdata gap 0x888697A0-0x888697B8

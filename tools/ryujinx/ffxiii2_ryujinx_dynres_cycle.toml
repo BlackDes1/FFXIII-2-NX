@@ -1,0 +1,14 @@
+# ffxiii2-nx (2026-11-08, k251): Ryujinx A/B, dynamic resolution cycling 612 -> 540 -> 720 every 60 s
+# (banjo_renut_dynamic_resolution_test_s; Ryujinx reports no GPU time, so the controller itself never lowers the height).
+update_data_root = "/switch/ffxiii2-nx/update"
+log_level = "info"
+log_file_writer = true
+input_xbox_layout = true
+input_script = "20:A,24:START,28:A,32:A,36:A,40:UP,43:A,60:START,62:BACK,64:A,80:START,82:BACK,84:A,100:START,102:BACK,104:A,120:A,130:A,140:START,142:BACK,144:A,160:A,170:A,180:START,182:BACK,184:A,200:A,210:A,220:A,230:A,240:A,250:A,260:A,270:A"
+nfsmw_captura_cada_s = 15
+nfsmw_captura_max = 60
+banjo_renut_dynamic_resolution = true
+banjo_renut_dynamic_resolution_handheld_mid = 612
+banjo_renut_dynamic_resolution_handheld_low = 540
+banjo_renut_dynamic_resolution_test_s = 60.0
+banjo_background_compile_core = 3

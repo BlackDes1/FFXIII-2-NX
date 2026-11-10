@@ -1,0 +1,34 @@
+# Final Fantasy XIII-2 for the Switch: your options. Every other setting is built into the NRO
+# (app/ffxiii2_switch_defaults.toml). Delete this file and the game writes it again at the next start.
+
+# Language: 1 = English, 2 = Japanese, 3 = German, 4 = French, 5 = Spanish, 6 = Italian.
+user_language = 1
+
+# Face buttons: false = by letter (the Switch's A acts as A), true = by position, as on an Xbox pad (bottom = A).
+input_xbox_layout = false
+
+# Single Joy-Cons are held sideways.
+input_joycon_sideways = true
+# With it, a single Joy-Con's stick is turned for the sideways grip.
+input_joycon_sideways_stick = true
+
+# Button mapping: the Switch buttons that press each Xbox button. Empty = default.
+# Buttons: A B X Y L R ZL ZR PLUS MINUS LSTICK RSTICK UP DOWN LEFT RIGHT SL SR NONE. Example: a = "B, ZR"
+
+[input_p1]
+a = ""
+b = ""
+x = ""
+y = ""
+lb = ""
+rb = ""
+lt = ""
+rt = ""
+start = ""
+back = ""
+ls = ""
+rs = ""
+up = ""
+down = ""
+left = ""
+right = ""

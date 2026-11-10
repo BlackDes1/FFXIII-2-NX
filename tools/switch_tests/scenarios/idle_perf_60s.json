@@ -1,0 +1,28 @@
+{
+ "name": "idle_perf_60s",
+ "description": "No input for 70 s wherever the game is; screenshot at start and end; logs (renut 10 s fps periods, rex_profile). The A/B baseline: run it at the same spot before and after a change.",
+ "precondition": "The game is at the scene to measure (same scene for both builds of an A/B).",
+ "steps": [
+  {
+   "do": "check_running"
+  },
+  {
+   "do": "shot",
+   "name": "start"
+  },
+  {
+   "do": "wait",
+   "s": 70
+  },
+  {
+   "do": "shot",
+   "name": "end"
+  },
+  {
+   "do": "check_running"
+  },
+  {
+   "do": "collect"
+  }
+ ]
+}

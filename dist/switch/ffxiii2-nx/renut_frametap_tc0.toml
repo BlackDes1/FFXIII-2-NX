@@ -1,0 +1,21 @@
+# ffxiii2-nx (2026-11-06): D-003 test (docs/diagnostics/BUGS.md): the Maxwell tiled cache disabled in every command
+# list (ffxiii2_deko3d_tiled_cache = 0). The band sits at a fixed screen row in every scene; a tiled-cache hazard (a
+# pass reading what an earlier one wrote while it is still in the cache) leaves edges on tile boundaries.
+# Frame Tap session (uncompressed swapchain), shadow fix on (k211 default). A visual session, never a benchmark.
+# Credits: reNut's renderer (masterspike52, reuse permitted), banjo-nx, katamari-nx, renut-nx, sa2-nx, NetherSX2_nx,
+# battd_nx, bejeweled3-nx and the zuma ports.
+
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+
+log_level = "info"
+log_file_writer = true
+log_file_reopen = true
+banjo_profiler_pad_toggle = true
+banjo_profiler_pad_combo = "L3+R3"
+input_shared_players = true
+
+ffxiii2_swapchain_compression = false
+ffxiii2_deko3d_tiled_cache = 0

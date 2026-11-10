@@ -1,0 +1,17 @@
+# ffxiii2-nx (2026-11-08, k257): the k255 baseline settings (renut_k255_dynoff.toml) plus the in-run A/B of the bulk
+# copies (target 20: banjo_cpu_native_bulk off in one half, on in the other, every 5 s). Measurement only.
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+input_test_merge_pads = true
+
+banjo_renut_dynamic_resolution = false
+
+ffxiii2_renut_compose_resolves = true
+
+banjo_renut_ab_target = 20
+banjo_renut_ab_s = 5
+
+log_level = "info"
+log_file_writer = true

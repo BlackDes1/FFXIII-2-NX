@@ -1,0 +1,23 @@
+# ffxiii2-nx (2026-11-07, k247, the user: "make use of the 4 core"): renut_dynres.toml + banjo_system_core = 2 (the game
+# threads may also run on core 3, which was about half idle in battle; audio, the XAudio mixer and shader compiles stay
+# pinned there) and the XMA decoder on core 3 too (banjo_system_core_xma). From NetherSX2_nx's four-core layout
+# (banjo-nx 2026-10-27). A console A/B against renut_dynres.toml.
+# Credits: reNut's renderer (masterspike52, reuse permitted), banjo-nx, katamari-nx, renut-nx (dynamic resolution's
+# design), sa2-nx, NetherSX2_nx (four-core mode), battd_nx, bejeweled3-nx and the zuma ports.
+
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+input_test_merge_pads = true
+
+banjo_renut_dynamic_resolution = true
+banjo_renut_dynamic_resolution_handheld_mid = 612
+banjo_renut_dynamic_resolution_handheld_low = 540
+banjo_renut_dynamic_resolution_gpu_ms = 30.0
+
+banjo_system_core = 2
+banjo_system_core_xma = true
+
+log_level = "info"
+log_file_writer = true

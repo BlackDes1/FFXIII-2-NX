@@ -1,0 +1,62 @@
+# ffxiii2-nx (2026-11-05): the developer config for live Switch testing (docs/LIVE_SWITCH_TESTING.md). renut.toml
+# (same picture, logs on) plus the profiler window on the controller: hold L3+R3 (both stick clicks) to show / hide
+# it. The window draws over the game; nothing else changes. Copy next to the NRO as ffxiii2.toml
+# (sdmc:/switch/ffxiii2-nx/ffxiii2.toml), or let tools/switch_deploy/deploy.py --toml dist/switch/ffxiii2-nx/renut_dev.toml
+# put it there. Release packages keep the toggle off (app/ffxiii2_switch_defaults.toml).
+# Stack sampling (1 ms, reports every 10 s in logs/rex/rex_profile.log) stays off here: create the empty file
+# logs/rex/perfil_pilas.flag next to the NRO and restart the game to turn it on; it costs frame rate.
+# Credits: reNut's renderer (masterspike52, reuse permitted), banjo-nx, katamari-nx, renut-nx, sa2-nx, NetherSX2_nx,
+# battd_nx, bejeweled3-nx, nfsmw-nx (StevensND: the stack sampler's perfil_pilas.flag) and the zuma ports.
+
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+
+log_level = "info"
+log_file_writer = true
+# The log closed after every 1 s batch, so tools/switch_logs/collect.py can read it while the game runs (the FS
+# refuses a read of a file the game holds open: tested 2026-11-05, renut_014.log "locked").
+
+banjo_profiler_pad_toggle = true
+banjo_profiler_pad_combo = "L3+R3"
+log_file_reopen = true
+# Every controller is player 1, so sys-botbase's virtual controller (player 2 in handheld mode) reaches the game.
+input_shared_players = true
+
+# ffxiii2-nx flicker test F1 (2026-11-06): the deko3d and sa2 renderer keys outside the enhancement table off (not the uam compiler keys; push_constants is already off): the table keys (test G2) did not stop the band.
+banjo_deko3d_alpha_spec = false
+banjo_deko3d_async_cache_reads = false
+banjo_deko3d_async_variants = false
+banjo_deko3d_barrier_lean = false
+banjo_deko3d_barrier_merge = false
+banjo_deko3d_compile_wait_boost = false
+banjo_deko3d_depth24 = false
+banjo_deko3d_depth_compression = false
+banjo_deko3d_depth_handover = false
+banjo_deko3d_draw_resolves = false
+banjo_deko3d_early_hoist = false
+banjo_deko3d_early_z = false
+banjo_deko3d_kick_submit = false
+banjo_deko3d_ring_cleaner = false
+banjo_deko3d_tess_spec = false
+banjo_deko3d_txq_constants = false
+banjo_deko3d_vs_outputs = false
+banjo_deko3d_zcull = false
+sa2_renut_batch_clock = false
+sa2_renut_callbacks_fast = false
+sa2_renut_capture_batches = false
+sa2_renut_chain_reuse = false
+sa2_renut_done_notify_waiters = false
+sa2_renut_fetch_data_unread = false
+sa2_renut_fetch_slots_skip = false
+sa2_renut_inline_line_compare = false
+sa2_renut_lean_diagnostics = false
+sa2_renut_neon_compare = false
+sa2_renut_prefetch_next = false
+sa2_renut_shared_partial_clear = false
+sa2_renut_snapshot_deltas = false
+sa2_renut_snapshot_deltas_constants = false
+sa2_renut_snapshot_deltas_narrow = false
+sa2_renut_stream_mask = false
+sa2_renut_texture_defaults_copy = false

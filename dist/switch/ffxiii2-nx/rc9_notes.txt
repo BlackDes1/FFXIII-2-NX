@@ -1,0 +1,23 @@
+ffxiii2-nx package rc9 (2026-11-07): build k240 (the same sources as the PC build k240pc).
+
+WHAT CHANGED SINCE rc8
+1. The opening cutscene on the Switch (D-010): no more single frames with the 3D scene black and only the subtitles
+   left (the flicker you still saw on rc8; rc8 did fix the face, D-009).
+   Cause: the game uses one surface description in two roles - the scene's depth buffer and, rewritten in place, the
+   colour buffer of its final post-processing passes. The Xbox 360 takes the description when it is bound; the
+   renderer read it later on its own thread. The Switch's renderer runs further behind the game than the PC's, so it
+   sometimes read the description after the game had already switched it back to the depth role for the next frame,
+   and dropped that frame's final composite draws (the copies of the result still went to the screen: black with the
+   subtitles). Now that description is also taken at bind time in its colour role, as the 360 does. Frames that were
+   right before are drawn exactly as before.
+2. Same fixes as rc8 (D-009 face, D-008 battle flicker).
+
+STILL OPEN
+- Rare crash when the game is started right after it was closed, and when a Frame Tap stream attaches during a load
+  (D-006).
+- The band at the top of some battle frames (D-003) is not re-measured on the Switch yet.
+
+INSTALL: copy COPY_TO_SD_switch_ffxiii2-nx\ to sdmc:/switch/ffxiii2-nx/ (your saves in renut/ are not touched).
+ROLL BACK: rc8 (Works\builds\2026-11-07_0559_ffxiii2_rc8) and rc7 are unchanged.
+Credits: reNut's renderer (its author permits reuse), katamari-nx, renut-nx, sa2-nx, NetherSX2_nx, battd_nx,
+bejeweled3-nx / zuma ports. GPL-3.0 where the sources are.

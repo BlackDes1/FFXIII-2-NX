@@ -1,0 +1,4 @@
+# ffxiii2-nx: FFXIII-2's hand-written natives (Katamari's list removed: its addresses are another game's functions;
+# optimising-functions.md, "Stale mentions"). Format: see katamari-nx.
+# 2026-11-07 (docs/diagnostics/PERF_30FPS.md item 7): the 4x4 matrix multiply, 1.4 % of the main thread in battle.
+8228EFC0 exact=r9,r10,r11,v0,v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12,v13

@@ -1,0 +1,20 @@
+# ffxiii2-nx (2026-11-07, k246): rc8's ffxiii2.toml + dynamic resolution (720, 612 and 540 lines; GPU budget 30 ms a
+# frame for 30 fps). NOT pixel-identical (the user allowed it, 2026-11-07). The overlay (L3+R3) shows the height now,
+# the GPU average and the share of frames at each height. input_test_merge_pads: the test controller counts for
+# player 1.
+# Credits: reNut's renderer (masterspike52, reuse permitted), banjo-nx, katamari-nx, renut-nx (dynamic resolution's
+# design), sa2-nx, NetherSX2_nx, battd_nx, bejeweled3-nx and the zuma ports.
+
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+input_test_merge_pads = true
+
+banjo_renut_dynamic_resolution = true
+banjo_renut_dynamic_resolution_handheld_mid = 612
+banjo_renut_dynamic_resolution_handheld_low = 540
+banjo_renut_dynamic_resolution_gpu_ms = 30.0
+
+log_level = "info"
+log_file_writer = true

@@ -1,0 +1,40 @@
+# ffxiii2-nx: ReXGlue recompilation manifest, Final Fantasy XIII-2 (Europe disc default.xex 0.0.0.11 + TU6 0.0.6.11,
+# title 53510806). app/assets is a junction to Works\game_root: the disc's default.xex / z*.xex with the TU's *.xexp
+# beside them (the SDK applies each .xexp to its .xex on load, at codegen and at run time).
+[project]
+sdk_version = "0.10.0"
+name = "renut"
+
+[entrypoint]
+file_path = "assets/default.xex"
+out_directory_path = "generated"
+includes = [
+ "renut_config.toml"
+]
+
+# The four zone DLLs, loaded at run time (XexLoadImage). All four share base 0x88800000 (one resident at a time), so
+# the code generator runs once per module (tools/ffxiii2_codegen.ps1: --target zXXXX) and
+# tools/ffxiii2_post_codegen_modules.py then lists all four in the registry and the CMake module targets.
+[[modules]]
+guest_path = "z0070.xex"
+file_path = "assets/z0070.xex"
+out_directory_path = "generated_zones/z0070"
+includes = ["config/ffxiii2/z0070_functions.toml"]
+
+[[modules]]
+guest_path = "z0130.xex"
+file_path = "assets/z0130.xex"
+out_directory_path = "generated_zones/z0130"
+includes = ["config/ffxiii2/z0130_functions.toml"]
+
+[[modules]]
+guest_path = "z0160.xex"
+file_path = "assets/z0160.xex"
+out_directory_path = "generated_zones/z0160"
+includes = ["config/ffxiii2/z0160_functions.toml"]
+
+[[modules]]
+guest_path = "z0161.xex"
+file_path = "assets/z0161.xex"
+out_directory_path = "generated_zones/z0161"
+includes = ["config/ffxiii2/z0161_functions.toml"]

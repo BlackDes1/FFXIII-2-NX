@@ -1,0 +1,15 @@
+{
+  "switch_ip": "192.168.x.y",
+  "botbase_port": 6000,
+  "ftp_port": 5000,
+  "ftp_user": "ffxiii2dev",
+  "ftp_password": "<the password in sdmc:/config/sys-ftpd-10k/config.ini>",
+  "nro_dir": "/switch/ffxiii2-nx",
+  "log_dir": "/switch/ffxiii2-nx/logs",
+  "project": "ffxiii2-nx",
+  "nro_name": "ffxiii2.nro",
+  "timeout_s": 10.0,
+  "retries": 3,
+  "launch_sequence": [],
+  "launch_wait_s": 90
+}

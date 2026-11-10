@@ -1,0 +1,18 @@
+# ffxiii2-nx (2026-11-08): ONE diagnostic run on the k257 baseline: profiler overlay on and the SDK's stack sampler for this
+# run only (switch_profile_stacks; perfil_pilas.flag stays off on the SD), to find the bottlenecks. Test only.
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+input_test_merge_pads = true
+
+banjo_renut_dynamic_resolution = false
+
+ffxiii2_renut_compose_resolves = true
+
+log_level = "info"
+
+banjo_show_profiler = true
+switch_profile_stacks = true
+
+log_file_writer = true

@@ -1,0 +1,34 @@
+{
+ "name": "continue_from_menu",
+ "description": "At the title menu (CONTINUE selected): A, then screenshots through the load into the field",
+ "steps": [
+  {
+   "do": "shot",
+   "name": "menu"
+  },
+  {
+   "do": "click",
+   "button": "A"
+  },
+  {
+   "do": "wait",
+   "s": 5
+  },
+  {
+   "do": "shot",
+   "name": "a1"
+  },
+  {
+   "do": "shots",
+   "name": "load",
+   "every": 10,
+   "n": 8
+  },
+  {
+   "do": "check_running"
+  },
+  {
+   "do": "collect"
+  }
+ ]
+}

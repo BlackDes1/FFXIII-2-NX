@@ -1,0 +1,22 @@
+# ffxiii2-nx (2026-11-08, user: "Upload k246 with dynamic resolution on"): k246b's renut_dynres_stacks.toml without the
+# CPU stack sampling: rc8's ffxiii2.toml + dynamic resolution (live: 720 / 612 / 540 lines, GPU budget 30 ms).
+# NOT pixel-identical (dynamic resolution, the user's call 2026-11-07).
+# Credits: reNut's renderer (masterspike52, reuse permitted), banjo-nx, katamari-nx, renut-nx (dynamic resolution's
+# design), sa2-nx, NetherSX2_nx, battd_nx, bejeweled3-nx and the zuma ports.
+
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+input_test_merge_pads = true
+
+banjo_renut_dynamic_resolution = true
+banjo_renut_dynamic_resolution_handheld_mid = 612
+banjo_renut_dynamic_resolution_handheld_low = 540
+banjo_renut_dynamic_resolution_gpu_ms = 30.0
+
+# 2026-11-08 (k254, the user: "Turn on the shadow fix"): the k243d shadow fix on (k253 had it off).
+ffxiii2_renut_compose_resolves = true
+
+log_level = "info"
+log_file_writer = true

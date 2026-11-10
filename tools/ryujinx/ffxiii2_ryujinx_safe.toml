@@ -1,0 +1,35 @@
+# ffxiii2-nx (2026-11-05): the deko3d text/HUD diagnosis. ffxiii2_ryujinx.toml with every deko3d renderer enhancement
+# that is on by default switched off (banjo-nx's, made for other games). Text right here -> one of them is the cause
+# (bisect); still wrong -> the cause is elsewhere (memexport ordering, the texture path).
+# ffxiii2-nx Ryujinx test settings: the player's ffxiii2.toml slot (every key here overrides the built-in ones).
+# tools/ryujinx_run.ps1 -Toml tools\ryujinx\ffxiii2_ryujinx.toml copies it to the SD folder.
+update_data_root = "/switch/ffxiii2-nx/update"
+log_level = "info"
+log_file_writer = true
+input_xbox_layout = true
+# The PC's sequence (title -> main menu -> New Game / Continue -> opening -> first battle), pressed by the SDK.
+input_script = "20:A,24:START,28:A,32:A,36:A,40:UP,43:A,60:START,62:BACK,64:A,80:START,82:BACK,84:A,100:START,102:BACK,104:A,120:A,130:A,140:START,142:BACK,144:A,160:A,170:A,180:START,182:BACK,184:A,200:A,210:A,220:A,230:A,240:A,250:A,260:A,270:A"
+# Captures every 15 s (the work order), next to the NRO in captures\.
+nfsmw_captura_cada_s = 15
+nfsmw_captura_max = 60
+
+banjo_deko3d_draw_resolves = false
+banjo_deko3d_alpha_spec = false
+banjo_deko3d_tess_spec = false
+banjo_deko3d_vs_outputs = false
+banjo_deko3d_uam_prmt = false
+banjo_deko3d_uam_gvn = false
+banjo_deko3d_uam_uniform_branches = false
+banjo_deko3d_uam_wide_rows = false
+banjo_deko3d_early_z = false
+banjo_deko3d_txq_constants = false
+banjo_deko3d_early_hoist = false
+banjo_deko3d_depth_handover = false
+banjo_deko3d_depth24 = false
+banjo_deko3d_push_constants = false
+banjo_deko3d_barrier_merge = false
+banjo_deko3d_barrier_lean = false
+banjo_deko3d_kick_submit = false
+banjo_deko3d_ring_cleaner = false
+banjo_deko3d_depth_compression = false
+banjo_deko3d_zcull = false

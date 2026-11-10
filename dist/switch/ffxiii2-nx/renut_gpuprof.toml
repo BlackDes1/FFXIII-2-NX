@@ -1,0 +1,31 @@
+# ffxiii2-nx GPU profile (2026-11-05): renut_dev.toml plus the renderer's GPU time per kind of work every 10 s
+# (renut_gpu_profile; timestamps around each kind, split by pixel shader with banjo_renut_diag_gpu_shaders) in the
+# renut log. Timestamps cost a little GPU time: use the shares, not the fps. Based on: the developer config for live Switch testing (docs/LIVE_SWITCH_TESTING.md). renut.toml
+# (same picture, logs on) plus the profiler window on the controller: hold L3+R3 (both stick clicks) to show / hide
+# it. The window draws over the game; nothing else changes. Copy next to the NRO as ffxiii2.toml
+# (sdmc:/switch/ffxiii2-nx/ffxiii2.toml), or let tools/switch_deploy/deploy.py --toml dist/switch/ffxiii2-nx/renut_dev.toml
+# put it there. Release packages keep the toggle off (app/ffxiii2_switch_defaults.toml).
+# Stack sampling (1 ms, reports every 10 s in logs/rex/rex_profile.log) stays off here: create the empty file
+# logs/rex/perfil_pilas.flag next to the NRO and restart the game to turn it on; it costs frame rate.
+# Credits: reNut's renderer (masterspike52, reuse permitted), banjo-nx, katamari-nx, renut-nx, sa2-nx, NetherSX2_nx,
+# battd_nx, bejeweled3-nx, nfsmw-nx (StevensND: the stack sampler's perfil_pilas.flag) and the zuma ports.
+
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+
+log_level = "info"
+log_file_writer = true
+# The log closed after every 1 s batch, so tools/switch_logs/collect.py can read it while the game runs (the FS
+# refuses a read of a file the game holds open: tested 2026-11-05, renut_014.log "locked").
+
+banjo_profiler_pad_toggle = true
+banjo_profiler_pad_combo = "L3+R3"
+log_file_reopen = true
+# Every controller is player 1, so sys-botbase's virtual controller (player 2 in handheld mode) reaches the game.
+input_shared_players = true
+
+# GPU profile
+renut_gpu_profile = 10.0
+banjo_renut_diag_gpu_shaders = true

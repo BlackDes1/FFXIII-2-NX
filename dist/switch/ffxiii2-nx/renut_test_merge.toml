@@ -1,0 +1,17 @@
+# ffxiii2-nx (2026-11-07, k244): rc8's ffxiii2.toml for unattended console runs. Only addition:
+# input_test_merge_pads = true (sys-botbase's virtual controller is player 2 while the handheld's Joy-Cons are
+# attached; with this key its presses also count for player 1). Not for normal play.
+# Credits: reNut's renderer (masterspike52, reuse permitted), banjo-nx, katamari-nx, renut-nx, sa2-nx, NetherSX2_nx,
+# battd_nx, bejeweled3-nx and the zuma ports.
+
+# Language: 1 = English, 2 = Japanese, 3 = German, 4 = French, 5 = Spanish, 6 = Italian.
+user_language = 1
+# Face buttons: false = by letter (the Switch's A acts as A), true = by position, as on an Xbox pad (bottom = A).
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+input_test_merge_pads = true
+
+# Logs to sdmc:/switch/ffxiii2-nx/logs (frame rate, render thread and GPU time every 10 s).
+log_level = "info"
+log_file_writer = true

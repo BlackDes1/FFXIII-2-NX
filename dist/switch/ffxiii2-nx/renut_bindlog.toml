@@ -1,0 +1,23 @@
+# ffxiii2-nx (2026-11-06): D-003 test (docs/diagnostics/BUGS.md). [bindlog]: every target binding call (the game's
+# set-all-targets, SetDepthStencilSurface, SetRenderTarget) for 1500 calls from 200 s, next to one [rtlog] line per
+# frame from 200 s: which call leaves the scene's depth header bound while the second shadow cascade draws.
+# Same picture as renut.toml (logs only); no Frame Tap needed.
+# Credits: reNut's renderer (masterspike52, reuse permitted), banjo-nx, katamari-nx, renut-nx, sa2-nx, NetherSX2_nx,
+# battd_nx, bejeweled3-nx and the zuma ports.
+
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+
+log_level = "info"
+log_file_writer = true
+log_file_reopen = true
+banjo_profiler_pad_toggle = true
+banjo_profiler_pad_combo = "L3+R3"
+input_shared_players = true
+
+ffxiii2_diag_bind_log_start_s = 200
+ffxiii2_diag_bind_log_count = 1500
+ffxiii2_diag_rt_start_s = 200
+ffxiii2_diag_rt_frames = 60

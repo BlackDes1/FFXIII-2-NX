@@ -1,0 +1,22 @@
+ffxiii2-nx package rc2 (2026-11-05): the fixes from your rc1 console run.
+
+WHAT CHANGED SINCE rc1
+1. UI on the Switch: the garbled dynamic text, battle HUD gauges and save-screen thumbnails came from one of banjo-nx's
+   deko3d enhancements, the pushed uniform buffers (banjo_deko3d_push_constants). Bisected in Ryujinx (20 keys -> group
+   of 5 -> one key); it is off in this build (built in). Ryujinx: title, "Begin game" dialog and save screen render as
+   on the PC. Still wrong: the Primer's picture box (a separate bug, under investigation).
+2. CPU: the effect job system's four worker threads spun in polling loops (~240 % of the three cores, the main thread
+   got 14 %). The game's pure polling loops now give the core up while they wait (CPU yield hint, then core yields,
+   then 25 us sleeps; the loops read and leave exactly as before). Key ffxiii2_spin_backoff (on); A/B target 19.
+3. Shaders: the 37 shaders your console captured are in the package; deko3d_shaders.bin is compiled on the PC from your
+   console's pipeline list and the PC's (1,919 variants, merged with your console's own cache), so far fewer draws wait
+   for a shader compile (rc1 stalled for seconds at new scenes).
+4. 209 hot-function copies (verified on the PC: 0 differences), as rc1.
+
+PLEASE TEST, IN THIS ORDER (keep the old ffxiii2.toml? It is in before_rc2\ if you want it)
+1. renut.toml (the default ffxiii2.toml): title -> New Game -> through the first battle. Check the text, the battle HUD
+   (ATB gauge, enemy name/HP), the save screen. Send logs/renut_*.log.
+2. configs/renut_ab_control.toml as ffxiii2.toml: 4-5 minutes in one spot of a field or battle. Send the log.
+3. configs/renut_ab.toml (target 19, the polling-loop backoff): the same spot, the same time. Send the log.
+4. configs/renut_profile.toml: 5-10 minutes; send sdmc:/switch/rex_profile.log and the log.
+Photos of anything that looks different from the Xbox 360 are welcome (the Primer box, the FMV, the HUD).

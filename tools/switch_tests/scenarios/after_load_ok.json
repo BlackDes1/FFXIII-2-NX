@@ -1,0 +1,23 @@
+{
+ "name": "after_load_ok",
+ "description": "Dismiss 'Data loaded.' (A), screenshots of the scene",
+ "steps": [
+  {
+   "do": "click",
+   "button": "A"
+  },
+  {
+   "do": "wait",
+   "s": 5
+  },
+  {
+   "do": "shots",
+   "name": "scene",
+   "every": 8,
+   "n": 10
+  },
+  {
+   "do": "check_running"
+  }
+ ]
+}

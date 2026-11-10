@@ -1,0 +1,17 @@
+# ffxiii2-nx (2026-11-07, k245): rc8's ffxiii2.toml + measurement keys for the 30 fps work (default handheld clocks).
+# renut_gpu_profile: GPU time per kind of work every 10 s; banjo_renut_diag_gpu_shaders: the main pass split by pixel
+# shader. input_test_merge_pads: the test controller counts for player 1. Not for normal play.
+# Credits: reNut's renderer (masterspike52, reuse permitted), banjo-nx, katamari-nx, renut-nx, sa2-nx, NetherSX2_nx,
+# battd_nx, bejeweled3-nx and the zuma ports.
+
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+input_test_merge_pads = true
+
+renut_gpu_profile = 10.0
+banjo_renut_diag_gpu_shaders = true
+
+log_level = "info"
+log_file_writer = true

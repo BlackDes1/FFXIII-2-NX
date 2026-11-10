@@ -1,0 +1,22 @@
+# ffxiii2-nx (2026-11-06): D-003 bisect (docs/diagnostics/BUGS.md): the screen shows the scene-colour resolve
+# 6D05869C (the 1280x720 copy the post-processing reads; both tiles) instead of the game's image
+# (banjo_renut_diag_show_texture), with the frame stamp, for a Frame Tap recording. If its top 336 rows go stale in some
+# frames, the fault is at or before the scene resolve; if not, later in the post-processing / HUD. Diagnostic picture.
+# Credits: reNut's renderer (masterspike52, reuse permitted), banjo-nx, katamari-nx, renut-nx, sa2-nx, NetherSX2_nx,
+# battd_nx, bejeweled3-nx and the zuma ports.
+
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+
+log_level = "info"
+log_file_writer = true
+log_file_reopen = true
+banjo_profiler_pad_toggle = true
+banjo_profiler_pad_combo = "L3+R3"
+input_shared_players = true
+
+ffxiii2_swapchain_compression = false
+ffxiii2_diag_frame_stamp = true
+banjo_renut_diag_show_texture = "6D05869C"

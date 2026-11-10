@@ -1,0 +1,13 @@
+# ffxiii2-nx (2026-11-07, D-009 on the Switch): renut.toml plus the pass-1 list counts per Swap
+# (capturas/pass_counts.txt next to the NRO, rewritten every 300 swaps): is Lightning's face in the game's list on
+# every swap of the opening cutscene? Same picture as renut.toml.
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+log_level = "info"
+log_file_writer = true
+log_file_reopen = true
+ffxiii2_diag_pass_counts = true
+# sys-botbase's controller is player 2 in handheld mode: every controller drives player 1 (remote test only)
+input_shared_players = true

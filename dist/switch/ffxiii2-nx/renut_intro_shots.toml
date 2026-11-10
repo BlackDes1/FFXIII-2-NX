@@ -1,0 +1,13 @@
+# ffxiii2-nx (2026-11-07, k239o, D-009 on the Switch): renut.toml with an uncompressed swapchain, so sys-botbase's
+# screenshots (and Frame Tap) read the presented image (compressed swapchain images read black: k239n's black runs),
+# plus the pass-1 counts and every controller as player 1 (remote test). Same pixels; a visual session, not a benchmark.
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+log_level = "info"
+log_file_writer = true
+log_file_reopen = true
+ffxiii2_diag_pass_counts = true
+input_shared_players = true
+ffxiii2_swapchain_compression = false

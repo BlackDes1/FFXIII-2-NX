@@ -1,0 +1,14 @@
+# ffxiii2-nx (2026-11-08, k255): A/B for the blue grain in New Bodhum (user screenshots): renut_k246_dynres.toml with
+# dynamic resolution OFF (always 720 lines). Test only.
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+input_test_merge_pads = true
+
+banjo_renut_dynamic_resolution = false
+
+ffxiii2_renut_compose_resolves = true
+
+log_level = "info"
+log_file_writer = true

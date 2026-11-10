@@ -1,0 +1,33 @@
+# Everything the build makes from the game: never committed.
+/work/
+/out/
+/logs/
+/SD/
+/.tools/
+/app/out/
+/app/assets
+/app/generated/
+/app/generated_*/
+/sdk/out/
+# game files and anything made from them
+*.iso
+*.xex
+*.xexp
+*.nro
+*.nso
+*.nacp
+*.elf
+deko3d_glsl*.bin
+deko3d_shaders*.bin
+renut_image.bin
+shader_cache_switch.cpp
+spirv_cache.zst
+# local test settings (the FTP password lives only there)
+switch_test_config.json
+# backups and caches
+*.before_*
+__pycache__/
+*.pyc
+# your own NRO icon picture (tools/gh/build_switch.ps1 -Icon): never committed
+/icon.*
+/builder_settings.json

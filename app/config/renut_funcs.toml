@@ -1,0 +1,3 @@
+# ffxiii2-nx: hand-written function entries of Final Fantasy XIII-2's default.xex (with their reasons). The analysis
+# entries (pointer / gap / tail-branch sweeps of the earlier tree, each with its evidence) are in renut_config.toml.
+[functions]

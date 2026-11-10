@@ -1,0 +1,16 @@
+# ffxiii2-nx (2026-11-08, k251): console A/B for the user's broken battle picture. renut_30fps_test.toml with dynamic
+# resolution OFF (always 720 lines); everything else the same (PGO + LTO build, copies, compile core 3, logs).
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+input_test_merge_pads = true
+
+banjo_renut_dynamic_resolution = false
+
+banjo_background_compile_core = 3
+
+banjo_profiler_pad_toggle = true
+
+log_level = "info"
+log_file_writer = true

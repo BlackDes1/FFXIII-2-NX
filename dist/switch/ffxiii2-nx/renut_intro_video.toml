@@ -1,0 +1,18 @@
+# ffxiii2-nx (2026-11-07, k239q, D-009 on the Switch): renut.toml plus the renderer's own frame video: from 145 s
+# after the start, 300 consecutive presented frames read back by the renderer (renut::gpu::CaptureFrame: the guest
+# image scanned out again into an offscreen target, a GPU sync per frame, so the game runs slower meanwhile) to
+# capturas/video_145s.rgba. Not affected by the swapchain's compression or by what a capture tool reads; the k239n/o
+# screenshots showed black runs in the real-time opening that this tells apart (on screen or a capture artifact).
+# Plus the pass-1 counts and every controller as player 1 (remote test). A diagnostic session, not a benchmark.
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+log_level = "info"
+log_file_writer = true
+log_file_reopen = true
+ffxiii2_diag_pass_counts = true
+input_shared_players = true
+banjo_video_s = 145
+banjo_video_frames = 300
+banjo_video_half = true

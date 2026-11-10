@@ -1,0 +1,69 @@
+{
+ "name": "opening_skip",
+ "description": "Next on the autosave notice, then cutscene skips (START, BACK, A) as the PC sequence does",
+ "steps": [
+  {
+   "do": "click",
+   "button": "A"
+  },
+  {
+   "do": "wait",
+   "s": 8
+  },
+  {
+   "do": "shot",
+   "name": "after_next"
+  },
+  {
+   "do": "seq",
+   "seq": "PLUS,W2000,MINUS,W2000,A"
+  },
+  {
+   "do": "wait",
+   "s": 10
+  },
+  {
+   "do": "shot",
+   "name": "skip1"
+  },
+  {
+   "do": "seq",
+   "seq": "PLUS,W2000,MINUS,W2000,A"
+  },
+  {
+   "do": "wait",
+   "s": 10
+  },
+  {
+   "do": "shot",
+   "name": "skip2"
+  },
+  {
+   "do": "seq",
+   "seq": "PLUS,W2000,MINUS,W2000,A"
+  },
+  {
+   "do": "wait",
+   "s": 10
+  },
+  {
+   "do": "shot",
+   "name": "skip3"
+  },
+  {
+   "do": "seq",
+   "seq": "PLUS,W2000,MINUS,W2000,A"
+  },
+  {
+   "do": "wait",
+   "s": 10
+  },
+  {
+   "do": "shot",
+   "name": "skip4"
+  },
+  {
+   "do": "check_running"
+  }
+ ]
+}

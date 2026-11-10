@@ -1,0 +1,23 @@
+{
+ "name": "battle_shots",
+ "description": "In the Chaos Bahamut battle: page through the tutorial, then 30 screenshots as fast as pixelPeek allows (flicker metric)",
+ "steps": [
+  {
+   "do": "seq",
+   "seq": "A,W2500,A,W2500,A,W2500,A,W2500,A,W2500"
+  },
+  {
+   "do": "shot",
+   "name": "after_tutorial"
+  },
+  {
+   "do": "shots",
+   "name": "battle",
+   "every": 0,
+   "n": 30
+  },
+  {
+   "do": "check_running"
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+# ffxiii2-nx (2026-11-07, k246b): rc8's ffxiii2.toml + dynamic resolution (live: 720 / 612 / 540 lines, GPU budget 30 ms)
+# + CPU stack sampling (switch_profile_stacks: which functions take the main thread's time in battle; k246a showed the
+# main thread at 89 % of a core while the GPU was at 24-27 ms a frame at 540 lines, the game still at 20-23 fps).
+# NOT pixel-identical (dynamic resolution, the user's call 2026-11-07). input_test_merge_pads: the test controller counts
+# for player 1. Not for normal play.
+# Credits: reNut's renderer (masterspike52, reuse permitted), banjo-nx, katamari-nx, renut-nx (dynamic resolution's
+# design), kameo-nx (profiling method), sa2-nx, NetherSX2_nx, battd_nx, bejeweled3-nx and the zuma ports.
+
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+input_test_merge_pads = true
+
+banjo_renut_dynamic_resolution = true
+banjo_renut_dynamic_resolution_handheld_mid = 612
+banjo_renut_dynamic_resolution_handheld_low = 540
+banjo_renut_dynamic_resolution_gpu_ms = 30.0
+
+switch_profile_stacks = true
+
+log_level = "info"
+log_file_writer = true

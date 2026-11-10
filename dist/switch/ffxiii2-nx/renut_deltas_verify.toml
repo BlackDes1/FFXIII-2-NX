@@ -1,0 +1,24 @@
+# ffxiii2-nx (2026-11-06): D-003 test (docs/diagnostics/BUGS.md). The [rtlog] of k203 shows the second shadow cascade
+# drawn with the scene's depth header (6CB07E60) in most battle frames, while the resolve right after it reads the
+# cascade's header (3018C000): draws and resolves see a different depth binding. Draws take their device from the
+# snapshot delta chain (sa2_renut_snapshot_deltas); this run keeps a whole copy as well and counts the draws whose
+# rebuilt device differs (the "[renut] device snapshots" line every 10 s, the first 8 differences as warnings).
+# Same picture as renut.toml (a test of the bookkeeping only); logs on; no Frame Tap needed.
+# Credits: reNut's renderer (masterspike52, reuse permitted), banjo-nx, katamari-nx, renut-nx, sa2-nx, NetherSX2_nx,
+# battd_nx, bejeweled3-nx and the zuma ports.
+
+user_language = 1
+input_xbox_layout = false
+input_joycon_sideways = true
+input_joycon_sideways_stick = true
+
+log_level = "info"
+log_file_writer = true
+log_file_reopen = true
+banjo_profiler_pad_toggle = true
+banjo_profiler_pad_combo = "L3+R3"
+input_shared_players = true
+
+sa2_renut_snapshot_deltas_verify = true
+ffxiii2_diag_rt_start_s = 120
+ffxiii2_diag_rt_frames = 1500

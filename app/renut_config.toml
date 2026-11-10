@@ -1,0 +1,435 @@
+# ffxiii2-nx (Final Fantasy XIII-2, Europe disc 0.0.0.11 + TU6 0.0.6.11, title 53510806) - ReXGlue codegen
+# configuration of default.xex, on the katamari-nx base (2026-11-03). The project keeps banjo-nx's / katamari-nx's
+# internal name "renut" (generated/renut_*.h, the renut / renut_recomp targets, out/renut_image.bin) so their CMake,
+# post-codegen passes and renderer glue work unchanged; the NRO and the SD folder are ffxiii2-nx
+# (docs/ffxiii2-nx.md, "Decisions"). The zone modules' entries are config/ffxiii2/z*_functions.toml.
+
+includes = [
+"config/renut_funcs.toml",
+"config/renut_hooks.toml",
+"overrides.toml",
+]
+
+# banjo-nx's optimised codegen keys that need no per-game audit (they change how the C++ is written, not what the
+# guest sees; banjo-nx's renut_config.toml carries the reasoning and the console measurements for each):
+cr_as_local = true
+ctr_as_local = true
+xer_as_local = true
+reserved_as_local = true
+skip_msr = true
+dform_disp_split = true
+fctiwz_inline = true
+fcti_inline = true
+dcbt_prefetch = true
+rotate_word_shifts = true
+fp_compares_modeless = true
+fp_mode_lookahead = true
+fp_mode_lookahead_past_branch = true
+fp_copy_pairs = true
+fp_copy_forwarding = true
+div_inline = true
+fp_moves_modeless = true
+
+# The register "diet" (katamari-nx / banjo-nx), ffxiii2-nx k264 (2026-11-08): non_volatile_as_local and
+# elide_lr_stores ON. Audit: tools/read_before_write.py --noreturn=82C15900 on a codegen WITH them (out/audit/gen_diet,
+# tools/ffxiii2_diet_audit_job.ps1), noreturn seeds 82C15900 (longjmp) and 82C150C8 (_CxxThrowException: without it
+# 82505B90 / 82A53108 looked like split pieces; marked share_registers in a first try, they crashed the boot (k264)).
+# The vector registers read before any write stay in ctx (below); left: 82B6A100 / 82B6A490 (xor r30,r30,r30: the
+# value is 0 whatever r30 held), 82BC4D90 (a carry of ~r29 + r29: independent of r29) and setjmp 82C15C20 (the
+# codegen's setjmp handling) - all four exact. non_argument_as_local stays OFF (its audit needs a raw codegen without it).
+non_volatile_as_local = true
+# FFXIII-2-Native-Switch: elide_lr_stores OFF (2026-11-08 14:08): the old project found k264b (both diet keys) dying at
+# the first zone load (Ryujinx) and at boot (PC); its k264c bisect keeps the link-register stores. Re-enable only after
+# that is resolved.
+elide_lr_stores = false
+non_volatile_as_local_keep = ["v29", "v117", "v119", "v120", "v121", "v122", "v124", "v125", "v126", "v127"]
+# FFXIII-2-Native-Switch P1 (2026-11-08): ABI-lifted codegen. Validation flavour (PC): instrument + poison ON;
+# the performance flavour sets both false. Exclude file = the 2,400 functions overridden in the k264b ELF (hooks,
+# machine copies, natives) in P1b (copies kept); P1a (copies retired) uses the 286 real hooks only. See the P1 README. non_argument_as_local needs the p1_raw audit keep list first.
+non_argument_as_local = true
+# keep list round 1 from the P1 audits (prototypes/P1_abi_lifted_codegen/audit/keep_round1.toml: 108 functions with evidence)
+non_argument_as_local_keep = [0x8225D008, 0x822996A0, 0x8231EDE8, 0x8231F098, 0x8231F728, 0x8239DA28, 0x823A7730, 0x82450408, 0x824BC140, 0x824C7B40, 0x82590548, 0x825E89C0, 0x825E9760, 0x825F07C0, 0x8286E304, 0x8286E53C, 0x828846D8, 0x82891560, 0x828F0BF0, 0x828F5088, 0x828F5AE0, 0x82913EC8, 0x829142D8, 0x8296AEF0, 0x8296AF48, 0x829B47F0, 0x829D1DD0, 0x829D1F00, 0x829D2C90, 0x829D2E10, 0x829DAC70, 0x829DEC10, 0x829DF4C8, 0x829DF518, 0x829DF528, 0x829E3468, 0x829E4A58, 0x829EEC70, 0x829F0DC8, 0x829F5E98, 0x829FCF30, 0x829FF400, 0x829FF4E0, 0x82A002B0, 0x82A944B0, 0x82B06368, 0x82B06610, 0x82B07070, 0x82B09528, 0x82B118B8, 0x82B12A48, 0x82B138E0, 0x82B4F1C8, 0x82B4F1E8, 0x82B4FC94, 0x82B4FCB4, 0x82B4FED4, 0x82B4FEF4, 0x82B5003C, 0x82B5005C, 0x82B507B4, 0x82B541DC, 0x82B541FC, 0x82B544FC, 0x82B5451C, 0x82B546BC, 0x82B546DC, 0x82B54A1C, 0x82B54A3C, 0x82B54F78, 0x82B54FA4, 0x82B56A54, 0x82B56A74, 0x82B58198, 0x82B581B8, 0x82B5B8A0, 0x82B5B8C0, 0x82B5D580, 0x82B5D5A0, 0x82B5D7BC, 0x82B5D7DC, 0x82B5DB84, 0x82B5DBA4, 0x82B5DD00, 0x82B5DD20, 0x82B5DFE8, 0x82B5E008, 0x82B5F270, 0x82B5F338, 0x82B5FC24, 0x82B5FC44, 0x82B68570, 0x82B68598, 0x82B68864, 0x82B6888C, 0x82B69128, 0x82B69148, 0x82B6BF50, 0x82BAAE10, 0x82BAB2F8, 0x82BACAC0, 0x82BACF10, 0x82BAD280, 0x82BAD688, 0x82C15498, 0x82C17230, 0x82C17FB0, 0x82C17FDC]
+args_in_registers = true
+args_in_registers_exclude_file = "args_exclude.txt"
+args_in_registers_instrument = true
+args_in_registers_poison = true
+
+# default.xex (EU 0.0.0.11 + TU6 0.0.6.11): functions the automatic discovery misses. Every entry carries its evidence.
+#
+# Pass 1 (codegen 2026-11-02, "target not in any function"): code reached only by a tail branch (b) from another
+# function and lying in a .pdata gap. Extent: tools/extent.py on out/default_image.bin, from the entry through every
+# forward conditional branch to the unconditional exit (b/blr/bctr) that ends it; each one ends right before zero
+# padding or the next function's prologue (mflr r12), checked by disassembly. Each entry reads only argument
+# registers (r3-r10, f1) before writing, so it is a function entry, not a fragment.
+# 13 of the 20 entry addresses coincide with the USA TU 0.0.1.13 hints of leftisthominid/ffxiii-2-port; sizes were
+# re-derived here (five of the USA sizes stop at the first blr and would cut the function short).
+# setjmp / longjmp (found by shape, tools/local/sjlj.py + disassembly, 2026-11-02):
+#   setjmp  0x82C15C20: hook check (lwz r0 from 0x82EBF700; bnectr), mflr r0, mfcr r4, stfd f14-f31 0..136(r3),
+#           std r13-r31 152..296(r3), stvx128 v0.. from 320(r3)
+#   longjmp 0x82C15900: mr r7,r3; lfd f14-f31 0..136(r7), ld r13-r31, lvx128 from 320(r7), mtlr r5, ld r1,144(r7),
+#           mtcr r4, blr: the mirror of setjmp's offsets.
+# No static caller in default.xex or the zone DLLs (no bl/b, no stored pointer except longjmp's own .pdata entry, no
+# lis/addi build): declared so the generator handles them correctly if they are reached.
+setjmp_address = 0x82C15C20
+longjmp_address = 0x82C15900
+
+project_name = "renut"
+file_path = "assets/default.xex"
+out_directory_path = "generated"
+
+[functions]
+0x8248A2E8 = { size = 8 } # tail-branched to from 0x8247AA00 (b); code from entry to b at 0x8248A2EC, preceded by an unconditional exit; reads only argument registers before writing
+0x8248B708 = { size = 8 } # tail-branched to from 0x8247C89C (b); code from entry to b at 0x8248B70C, preceded by an unconditional exit; reads only argument registers before writing
+0x8248B710 = { size = 8 } # tail-branched to from 0x8247BDC4 (b); code from entry to b at 0x8248B714, preceded by an unconditional exit; reads only argument registers before writing
+0x8248B718 = { size = 8 } # tail-branched to from 0x8247BDBC (b); code from entry to b at 0x8248B71C, preceded by an unconditional exit; reads only argument registers before writing
+0x8248B730 = { size = 8 } # tail-branched to from 0x8247A314 (b); code from entry to b at 0x8248B734, preceded by an unconditional exit; reads only argument registers before writing
+0x8248BCD8 = { size = 8 } # tail-branched to from 0x8247A1E4 (b); code from entry to b at 0x8248BCDC, preceded by an unconditional exit; reads only argument registers before writing
+0x82506C28 = { size = 56 } # tail-branched to from 0x82504A3C (b); code from entry to b at 0x82506C5C, preceded by an unconditional exit; reads only argument registers before writing
+0x82763400 = { size = 20 } # tail-branched to from 0x827580F0 (b); code from entry to blr at 0x82763410, preceded by an unconditional exit; reads only argument registers before writing
+0x82765E50 = { size = 20 } # tail-branched to from 0x827581C4 (b); code from entry to blr at 0x82765E60, preceded by an unconditional exit; reads only argument registers before writing
+0x827C4748 = { size = 80 } # tail-branched to from 0x827C0988 (b); code from entry to bctr at 0x827C4794, preceded by an unconditional exit; reads only argument registers before writing
+0x828324F0 = { size = 8 } # tail-branched to from 0x82838D08 (b); code from entry to b at 0x828324F4, preceded by an unconditional exit; reads only argument registers before writing
+0x828324F8 = { size = 36 } # tail-branched to from 0x82838C98 (b); code from entry to b at 0x82832518, preceded by an unconditional exit; reads only argument registers before writing
+0x82832D48 = { size = 64 } # tail-branched to from 0x82838990 (b); code from entry to b at 0x82832D84, preceded by an unconditional exit; reads only argument registers before writing
+0x82835918 = { size = 8 } # tail-branched to from 0x82832860 (b); code from entry to b at 0x8283591C, preceded by an unconditional exit; reads only argument registers before writing
+0x82835940 = { size = 24 } # tail-branched to from 0x828328D8 (b); code from entry to blr at 0x82835954, preceded by an unconditional exit; reads only argument registers before writing
+0x8292C148 = { size = 8 } # tail-branched to from 0x82741274 (b); code from entry to b at 0x8292C14C, preceded by an unconditional exit; reads only argument registers before writing
+0x829531E8 = { size = 4 } # tail-branched to from 0x82952A04 (b); code from entry to b at 0x829531E8, preceded by an unconditional exit; reads only argument registers before writing
+0x829A7A90 = { size = 12 } # tail-branched to from 0x82AFA8FC (b); code from entry to blr at 0x829A7A98, preceded by an unconditional exit; reads only argument registers before writing
+0x82A34EE0 = { size = 124 } # tail-branched to from 0x82A34FC4 (b); code from entry to b at 0x82A34F58, preceded by an unconditional exit; reads only argument registers before writing
+0x82BDC9C8 = { size = 172 } # tail-branched to from 0x82BDCA94 (b); code from entry to blr at 0x82BDCA70, preceded by an unconditional exit; reads only argument registers before writing
+
+# Pass 2 (2026-11-02): functions reached only through pointers. tools/local/ptrscan.py on out/default_image.bin and the
+# pass-1 generated code: function extents from .pdata lengths and the generated labels; unclaimed non-padding gaps in
+# .text/BINK/RADCODE; candidates = 4-aligned words of .rdata/.data/... and lis+addi/ori pairs in code whose value lands
+# in a gap; accepted when the code from the candidate reaches an unconditional exit (or the next function start)
+# inside its gap with no zero word, and the word before it is an exit, padding or the gap start. 304 accepted,
+# 0 rejected (two SEH scope-table handlers at 0x82B690F4/0x82B69110 lie inside sub_82B688E0 and are not gaps).
+# Cross-check: 257 of the 268 USA data-pointer entries and 35 of its 58 virtual thunks are at the same addresses;
+# the other USA entries are already function starts here, or (0x82511724) a jump-table case of sub_82511660.
+0x82251F18 = { size = 4 } # pointer-only: pointer stored at 0x82001B40 (.rdata); code to the unconditional exit inside .pdata gap 0x82251F18-0x82251F1C
+0x82253228 = { size = 16 } # pointer-only: address built at 0x8225C16C (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x82253238 = { size = 16 } # pointer-only: address built at 0x8225B6AC (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x82253278 = { size = 16 } # pointer-only: address built at 0x8225BD90 (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x82253298 = { size = 16 } # pointer-only: address built at 0x8225C0EC (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x822532B8 = { size = 16 } # pointer-only: address built at 0x8225B74C (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x822532C8 = { size = 16 } # pointer-only: address built at 0x8225B834 (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x822532D8 = { size = 16 } # pointer-only: address built at 0x8225B948 (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x822532F8 = { size = 16 } # pointer-only: address built at 0x8225BC2C (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x82253308 = { size = 16 } # pointer-only: address built at 0x8225BE44 (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x82253318 = { size = 16 } # pointer-only: address built at 0x8225BFC4 (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x82253328 = { size = 16 } # pointer-only: address built at 0x8225C0F4 (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x82253338 = { size = 16 } # pointer-only: address built at 0x8225B620 (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x82253348 = { size = 16 } # pointer-only: address built at 0x8225B774 (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x82253358 = { size = 16 } # pointer-only: address built at 0x8225B8B8 (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x82253388 = { size = 16 } # pointer-only: address built at 0x8225BCF0 (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x822533A8 = { size = 16 } # pointer-only: address built at 0x8225BFE8 (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x822533B8 = { size = 16 } # pointer-only: address built at 0x8225C154 (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x822533C8 = { size = 16 } # pointer-only: address built at 0x8225B658 (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x822533D8 = { size = 16 } # pointer-only: address built at 0x8225B7CC (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x822533E8 = { size = 16 } # pointer-only: address built at 0x8225B918 (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x822533F8 = { size = 16 } # pointer-only: address built at 0x8225B9CC (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x82253408 = { size = 16 } # pointer-only: address built at 0x8225BAB8 (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x82253418 = { size = 16 } # pointer-only: address built at 0x8225BD2C (lis/addi); code to the unconditional exit inside .pdata gap 0x82253228-0x82253428
+0x8228BFD0 = { size = 24 } # pointer-only: pointer stored at 0x8200B218 (.rdata) (+2 more); code to the unconditional exit inside .pdata gap 0x8228BFD0-0x8228C018
+0x8228BFE8 = { size = 24 } # pointer-only: pointer stored at 0x8200B214 (.rdata); code to the unconditional exit inside .pdata gap 0x8228BFD0-0x8228C018
+0x8228C000 = { size = 24 } # pointer-only: pointer stored at 0x8200B220 (.rdata) (+2 more); code to the unconditional exit inside .pdata gap 0x8228BFD0-0x8228C018
+0x8228C090 = { size = 24 } # pointer-only: pointer stored at 0x8200B250 (.rdata); code to the unconditional exit inside .pdata gap 0x8228C090-0x8228C0D4
+0x8228C0A8 = { size = 24 } # pointer-only: pointer stored at 0x8200B23C (.rdata); code to the unconditional exit inside .pdata gap 0x8228C090-0x8228C0D4
+0x8228C0C0 = { size = 20 } # pointer-only: pointer stored at 0x8200B238 (.rdata) (+1 more); code to the unconditional exit inside .pdata gap 0x8228C090-0x8228C0D4
+0x823F6198 = { size = 16 } # pointer-only: pointer stored at 0x82036C04 (.rdata) (+1 more); code to the unconditional exit inside .pdata gap 0x823F6198-0x823F61A8
+0x823F61B8 = { size = 16 } # pointer-only: pointer stored at 0x82036C08 (.rdata) (+1 more); code to the unconditional exit inside .pdata gap 0x823F61B8-0x823F61C8
+0x823F61D8 = { size = 16 } # pointer-only: pointer stored at 0x82036BFC (.rdata) (+1 more); code to the unconditional exit inside .pdata gap 0x823F61D8-0x823F61E8
+0x823F61F8 = { size = 16 } # pointer-only: pointer stored at 0x82036C0C (.rdata) (+1 more); code to the unconditional exit inside .pdata gap 0x823F61F8-0x823F6208
+0x823F6218 = { size = 28 } # pointer-only: pointer stored at 0x82036C10 (.rdata) (+1 more); code to the unconditional exit inside .pdata gap 0x823F6218-0x823F6238
+0x823FA300 = { size = 8 } # pointer-only: pointer stored at 0x820372B8 (.rdata) (+25 more); code to the unconditional exit inside .pdata gap 0x823FA300-0x823FA308
+0x82400680 = { size = 8 } # pointer-only: pointer stored at 0x8203E578 (.rdata); code to the unconditional exit inside .pdata gap 0x82400680-0x82400688
+0x8241D6C0 = { size = 16 } # pointer-only: pointer stored at 0x820191E8 (.rdata) (+37 more); code to the unconditional exit inside .pdata gap 0x8241D6C0-0x8241D6D0
+0x8241D6E0 = { size = 16 } # pointer-only: pointer stored at 0x820191F0 (.rdata) (+38 more); code to the unconditional exit inside .pdata gap 0x8241D6E0-0x8241D700
+0x8241D6F0 = { size = 16 } # pointer-only: pointer stored at 0x820191F4 (.rdata) (+35 more); code to the unconditional exit inside .pdata gap 0x8241D6E0-0x8241D700
+0x8247A100 = { size = 8 } # pointer-only: pointer stored at 0x8204C400 (.rdata); code to the unconditional exit inside .pdata gap 0x8247A100-0x8247A108
+0x8247A118 = { size = 8 } # pointer-only: pointer stored at 0x8204C408 (.rdata); code to the unconditional exit inside .pdata gap 0x8247A118-0x8247A128
+0x8247A120 = { size = 8 } # pointer-only: pointer stored at 0x8204C40C (.rdata); code to the unconditional exit inside .pdata gap 0x8247A118-0x8247A128
+0x8247A1C8 = { size = 8 } # pointer-only: address built at 0x8243B730 (lis/addi); code to the unconditional exit inside .pdata gap 0x8247A1C8-0x8247A1E0
+0x8247A1D0 = { size = 8 } # pointer-only: address built at 0x8243B778 (lis/addi); code to the unconditional exit inside .pdata gap 0x8247A1C8-0x8247A1E0
+0x8247A1D8 = { size = 8 } # pointer-only: address built at 0x8243AC00 (lis/addi); code to the unconditional exit inside .pdata gap 0x8247A1C8-0x8247A1E0
+0x8247A378 = { size = 20 } # pointer-only: pointer stored at 0x8204C4AC (.rdata); code to the unconditional exit inside .pdata gap 0x8247A378-0x8247A38C
+0x8247A3A0 = { size = 12 } # pointer-only: pointer stored at 0x8204C4BC (.rdata); code to the unconditional exit inside .pdata gap 0x8247A3A0-0x8247A3AC
+0x8247A428 = { size = 8 } # pointer-only: pointer stored at 0x8204C4C8 (.rdata); code to the unconditional exit inside .pdata gap 0x8247A428-0x8247A438
+0x8247A430 = { size = 8 } # pointer-only: pointer stored at 0x8204C4CC (.rdata); code to the unconditional exit inside .pdata gap 0x8247A428-0x8247A438
+0x8247A7E0 = { size = 32 } # pointer-only: pointer stored at 0x8204C414 (.rdata); code to the unconditional exit inside .pdata gap 0x8247A7E0-0x8247A800
+0x8247A830 = { size = 16 } # pointer-only: pointer stored at 0x8204C43C (.rdata); code to the unconditional exit inside .pdata gap 0x8247A830-0x8247A840
+0x8247A8A0 = { size = 8 } # pointer-only: pointer stored at 0x8204C430 (.rdata); code to the unconditional exit inside .pdata gap 0x8247A8A0-0x8247A8B0
+0x8247A8A8 = { size = 8 } # pointer-only: pointer stored at 0x8204C428 (.rdata); code to the unconditional exit inside .pdata gap 0x8247A8A0-0x8247A8B0
+0x8247BE80 = { size = 8 } # pointer-only: address built at 0x8243F930 (lis/addi); code to the unconditional exit inside .pdata gap 0x8247BE80-0x8247BE88
+0x8247CAD0 = { size = 8 } # pointer-only: address built at 0x82436838 (lis/addi); code to the unconditional exit inside .pdata gap 0x8247CAD0-0x8247CAE0
+0x8247CAD8 = { size = 8 } # pointer-only: address built at 0x82436888 (lis/addi); code to the unconditional exit inside .pdata gap 0x8247CAD0-0x8247CAE0
+0x82480560 = { size = 24 } # pointer-only: pointer stored at 0x8204C498 (.rdata); code to the unconditional exit inside .pdata gap 0x82480560-0x82480578
+0x824C7B08 = { size = 56 } # pointer-only: pointer stored at 0x8204C518 (.rdata) (+3 more); code to the unconditional exit inside .pdata gap 0x824C7B08-0x824C7B40
+0x824F8100 = { size = 40 } # pointer-only: pointer stored at 0x82060B88 (.rdata); code to the unconditional exit inside .pdata gap 0x824F8100-0x824F8128
+0x82502450 = { size = 32 } # pointer-only: pointer stored at 0x82062FC0 (.rdata); code to the unconditional exit inside .pdata gap 0x82502450-0x8250249C
+0x82502470 = { size = 32 } # pointer-only: pointer stored at 0x82062FC4 (.rdata); code to the unconditional exit inside .pdata gap 0x82502450-0x8250249C
+0x82502490 = { size = 12 } # pointer-only: pointer stored at 0x82062F8C (.rdata); code to the unconditional exit inside .pdata gap 0x82502450-0x8250249C
+0x825124C0 = { size = 16 } # pointer-only: pointer stored at 0x82066888 (.rdata); code to the unconditional exit inside .pdata gap 0x825124C0-0x825124D4
+0x82512770 = { size = 8 } # pointer-only: pointer stored at 0x820668BC (.rdata); code to the unconditional exit inside .pdata gap 0x82512770-0x82512778
+0x82512780 = { size = 44 } # pointer-only: pointer stored at 0x820668C4 (.rdata); code to the unconditional exit inside .pdata gap 0x82512780-0x825127AC
+0x82512A28 = { size = 8 } # pointer-only: pointer stored at 0x8206691C (.rdata); code to the unconditional exit inside .pdata gap 0x82512A28-0x82512A3C
+0x82512A30 = { size = 12 } # pointer-only: pointer stored at 0x8206692C (.rdata); code to the unconditional exit inside .pdata gap 0x82512A28-0x82512A3C
+0x82512CE8 = { size = 4 } # pointer-only: pointer stored at 0x82066964 (.rdata); code to the unconditional exit inside .pdata gap 0x82512CE8-0x82512CEC
+0x82513780 = { size = 16 } # pointer-only: pointer stored at 0x82066A90 (.rdata); code to the unconditional exit inside .pdata gap 0x82513780-0x82513790
+0x82513940 = { size = 60 } # pointer-only: pointer stored at 0x82066AB4 (.rdata); code to the unconditional exit inside .pdata gap 0x82513940-0x8251397C
+0x8251B530 = { size = 8 } # pointer-only: pointer stored at 0x8206B534 (.rdata); code to the unconditional exit inside .pdata gap 0x8251B530-0x8251B538
+0x825983A0 = { size = 60 } # pointer-only: pointer stored at 0x8209E9C4 (.rdata); code to the unconditional exit inside .pdata gap 0x825983A0-0x825983DC
+0x8259B988 = { size = 8 } # pointer-only: pointer stored at 0x8209F6AC (.rdata); code to the unconditional exit inside .pdata gap 0x8259B988-0x8259B994
+0x8259B990 = { size = 4 } # pointer-only: pointer stored at 0x8209F6CC (.rdata); code to the unconditional exit inside .pdata gap 0x8259B988-0x8259B994
+0x827C3728 = { size = 8 } # pointer-only: pointer stored at 0x82123AC8 (.rdata); code to the unconditional exit inside .pdata gap 0x827C3728-0x827C3730
+0x827C3740 = { size = 8 } # pointer-only: pointer stored at 0x82123ADC (.rdata); code to the unconditional exit inside .pdata gap 0x827C3740-0x827C3748
+0x82808100 = { size = 4 } # pointer-only: pointer stored at 0x82CB0534 (.data); code to the unconditional exit inside .pdata gap 0x82808100-0x82808104
+0x82808ED0 = { size = 28 } # pointer-only: pointer stored at 0x82CB06FC (.data); code to the unconditional exit inside .pdata gap 0x82808ED0-0x82808EEC
+0x82809588 = { size = 24 } # pointer-only: pointer stored at 0x82CB09B4 (.data); code to the unconditional exit inside .pdata gap 0x82809588-0x828095A4
+0x828095A0 = { size = 4 } # pointer-only: pointer stored at 0x82CB09A8 (.data); code to the unconditional exit inside .pdata gap 0x82809588-0x828095A4
+0x828095C0 = { size = 24 } # pointer-only: pointer stored at 0x82CB09CC (.data); code to the unconditional exit inside .pdata gap 0x828095C0-0x828095DC
+0x828095D8 = { size = 4 } # pointer-only: pointer stored at 0x82CB09D8 (.data); code to the unconditional exit inside .pdata gap 0x828095C0-0x828095DC
+0x828095F8 = { size = 24 } # pointer-only: pointer stored at 0x82CB0A14 (.data); code to the unconditional exit inside .pdata gap 0x828095F8-0x82809614
+0x82809610 = { size = 4 } # pointer-only: pointer stored at 0x82CB0A20 (.data); code to the unconditional exit inside .pdata gap 0x828095F8-0x82809614
+0x828135F0 = { size = 4 } # pointer-only: pointer stored at 0x82CB14E8 (.data); code to the unconditional exit inside .pdata gap 0x828135F0-0x828135F4
+0x82813A90 = { size = 24 } # pointer-only: pointer stored at 0x82CB1734 (.data); code to the unconditional exit inside .pdata gap 0x82813A90-0x82813AA8
+0x82813DD8 = { size = 4 } # pointer-only: pointer stored at 0x82CB19B0 (.data); code to the unconditional exit inside .pdata gap 0x82813DD8-0x82813DDC
+0x82813EC8 = { size = 24 } # pointer-only: pointer stored at 0x82CB19EC (.data); code to the unconditional exit inside .pdata gap 0x82813EC8-0x82813EE4
+0x82813EE0 = { size = 4 } # pointer-only: pointer stored at 0x82CB19F8 (.data); code to the unconditional exit inside .pdata gap 0x82813EC8-0x82813EE4
+0x82813F00 = { size = 24 } # pointer-only: pointer stored at 0x82CB1A10 (.data); code to the unconditional exit inside .pdata gap 0x82813F00-0x82813F1C
+0x82813F18 = { size = 4 } # pointer-only: pointer stored at 0x82CB1A1C (.data); code to the unconditional exit inside .pdata gap 0x82813F00-0x82813F1C
+0x8281F080 = { size = 44 } # pointer-only: pointer stored at 0x82CB2A18 (.data); code to the unconditional exit inside .pdata gap 0x8281F080-0x8281F0AC
+0x8281F0C0 = { size = 16 } # pointer-only: pointer stored at 0x82CB2A30 (.data); code to the unconditional exit inside .pdata gap 0x8281F0C0-0x8281F0FC
+0x8281F0D0 = { size = 44 } # pointer-only: pointer stored at 0x82CB2A3C (.data); code to the unconditional exit inside .pdata gap 0x8281F0C0-0x8281F0FC
+0x8281F158 = { size = 28 } # pointer-only: pointer stored at 0x82CB2A60 (.data); code to the unconditional exit inside .pdata gap 0x8281F158-0x8281F174
+0x8281F760 = { size = 4 } # pointer-only: pointer stored at 0x82CB2BBC (.data); code to the unconditional exit inside .pdata gap 0x8281F760-0x8281F764
+0x8281FC40 = { size = 24 } # pointer-only: pointer stored at 0x82CB2D30 (.data); code to the unconditional exit inside .pdata gap 0x8281FC40-0x8281FC5C
+0x8281FC58 = { size = 4 } # pointer-only: pointer stored at 0x82CB2D3C (.data); code to the unconditional exit inside .pdata gap 0x8281FC40-0x8281FC5C
+0x82836E28 = { size = 16 } # pointer-only: pointer stored at 0x8213F69C (.rdata); code to the unconditional exit inside .pdata gap 0x82836E28-0x82836E38
+0x828371C8 = { size = 8 } # pointer-only: pointer stored at 0x8213F6A8 (.rdata) (+2 more); code to the unconditional exit inside .pdata gap 0x828371C8-0x828371D8
+0x828371D0 = { size = 8 } # pointer-only: pointer stored at 0x8213F6B4 (.rdata) (+2 more); code to the unconditional exit inside .pdata gap 0x828371C8-0x828371D8
+0x828411E8 = { size = 40 } # pointer-only: pointer stored at 0x82143558 (.rdata); code to the unconditional exit inside .pdata gap 0x828411E8-0x82841234
+0x82841210 = { size = 36 } # pointer-only: pointer stored at 0x8214355C (.rdata); code to the unconditional exit inside .pdata gap 0x828411E8-0x82841234
+0x82841258 = { size = 44 } # pointer-only: pointer stored at 0x82143564 (.rdata); code to the unconditional exit inside .pdata gap 0x82841258-0x82841284
+0x828A3E48 = { size = 24 } # pointer-only: pointer stored at 0x8215DD8C (.rdata) (+1 more); code to the unconditional exit inside .pdata gap 0x828A3E48-0x828A3E6C
+0x828A3E60 = { size = 12 } # pointer-only: pointer stored at 0x8215DD94 (.rdata); code to the unconditional exit inside .pdata gap 0x828A3E48-0x828A3E6C
+0x828ECA68 = { size = 8 } # pointer-only: pointer stored at 0x821681E0 (.rdata) (+2 more); code to the unconditional exit inside .pdata gap 0x828ECA68-0x828ECA70
+0x828ECA78 = { size = 8 } # pointer-only: pointer stored at 0x821681F4 (.rdata) (+2 more); code to the unconditional exit inside .pdata gap 0x828ECA78-0x828ECA80
+0x828F38C8 = { size = 40 } # pointer-only: pointer stored at 0x82173A94 (.rdata); code to the unconditional exit inside .pdata gap 0x828F38C8-0x828F38F0
+0x828F6B68 = { size = 8 } # pointer-only: pointer stored at 0x82173EEC (.rdata); code to the unconditional exit inside .pdata gap 0x828F6B68-0x828F6B70
+0x828F6D80 = { size = 24 } # pointer-only: pointer stored at 0x82173ED4 (.rdata); code to the unconditional exit inside .pdata gap 0x828F6D80-0x828F6D98
+0x828F97A8 = { size = 20 } # pointer-only: pointer stored at 0x82174404 (.rdata); code to the unconditional exit inside .pdata gap 0x828F97A8-0x828F97BC
+0x829030F8 = { size = 8 } # pointer-only: pointer stored at 0x82174E94 (.rdata) (+1 more); code to the unconditional exit inside .pdata gap 0x829030F8-0x82903100
+0x82905418 = { size = 8 } # pointer-only: pointer stored at 0x8217539C (.rdata); code to the unconditional exit inside .pdata gap 0x82905418-0x82905420
+0x8290F4C0 = { size = 16 } # pointer-only: address built at 0x82910E1C (lis/addi); code to the unconditional exit inside .pdata gap 0x8290F4C0-0x8290F530
+0x8290F4D0 = { size = 16 } # pointer-only: address built at 0x82910F30 (lis/addi); code to the unconditional exit inside .pdata gap 0x8290F4C0-0x8290F530
+0x8290F4E0 = { size = 16 } # pointer-only: address built at 0x8290FAEC (lis/addi); code to the unconditional exit inside .pdata gap 0x8290F4C0-0x8290F530
+0x8290F500 = { size = 16 } # pointer-only: address built at 0x82910D84 (lis/addi); code to the unconditional exit inside .pdata gap 0x8290F4C0-0x8290F530
+0x8290F540 = { size = 16 } # pointer-only: address built at 0x82910CE0 (lis/addi); code to the unconditional exit inside .pdata gap 0x8290F540-0x8290F570
+0x8290F560 = { size = 16 } # pointer-only: address built at 0x82910EE0 (lis/addi); code to the unconditional exit inside .pdata gap 0x8290F540-0x8290F570
+0x8290F580 = { size = 16 } # pointer-only: address built at 0x82910D04 (lis/addi); code to the unconditional exit inside .pdata gap 0x8290F580-0x8290F5C0
+0x8290F590 = { size = 16 } # pointer-only: address built at 0x82910DFC (lis/addi); code to the unconditional exit inside .pdata gap 0x8290F580-0x8290F5C0
+0x8290F5B0 = { size = 16 } # pointer-only: address built at 0x8290FAD4 (lis/addi); code to the unconditional exit inside .pdata gap 0x8290F580-0x8290F5C0
+0x82923528 = { size = 20 } # pointer-only: pointer stored at 0x82036CE0 (.rdata) (+1 more); code to the unconditional exit inside .pdata gap 0x82923528-0x8292353C
+0x82924AA0 = { size = 8 } # pointer-only: pointer stored at 0x82036D20 (.rdata) (+1 more); code to the unconditional exit inside .pdata gap 0x82924AA0-0x82924AA8
+0x829327C8 = { size = 20 } # pointer-only: pointer stored at 0x8203730C (.rdata) (+25 more); code to the unconditional exit inside .pdata gap 0x829327C8-0x829327DC
+0x829365C0 = { size = 32 } # pointer-only: pointer stored at 0x8217A6D0 (.rdata); code to the unconditional exit inside .pdata gap 0x829365C0-0x829365E4
+0x829398B8 = { size = 8 } # pointer-only: pointer stored at 0x8217A8E4 (.rdata); code to the unconditional exit inside .pdata gap 0x829398B8-0x829398C0
+0x82941F78 = { size = 32 } # pointer-only: pointer stored at 0x8217B56C (.rdata) (+1 more); code to the unconditional exit inside .pdata gap 0x82941F78-0x82941F9C
+0x82943390 = { size = 8 } # pointer-only: pointer stored at 0x8217B700 (.rdata); code to the unconditional exit inside .pdata gap 0x82943390-0x82943398
+0x8294A2D0 = { size = 16 } # pointer-only: pointer stored at 0x8217CF74 (.rdata); code to the unconditional exit inside .pdata gap 0x8294A2D0-0x8294A2E0
+0x8294C588 = { size = 16 } # pointer-only: pointer stored at 0x8217CE8C (.rdata) (+2 more); code to the unconditional exit inside .pdata gap 0x8294C588-0x8294C598
+0x8294C5A8 = { size = 20 } # pointer-only: pointer stored at 0x8217CE90 (.rdata) (+1 more); code to the unconditional exit inside .pdata gap 0x8294C5A8-0x8294C5BC
+0x82952760 = { size = 8 } # pointer-only: pointer stored at 0x8218084C (.rdata); code to the unconditional exit inside .pdata gap 0x82952760-0x8295277C
+0x82952768 = { size = 8 } # pointer-only: pointer stored at 0x82180850 (.rdata); code to the unconditional exit inside .pdata gap 0x82952760-0x8295277C
+0x82952770 = { size = 8 } # pointer-only: pointer stored at 0x82180854 (.rdata); code to the unconditional exit inside .pdata gap 0x82952760-0x8295277C
+0x82952778 = { size = 4 } # pointer-only: pointer stored at 0x8218093C (.rdata) (+1 more); code to the unconditional exit inside .pdata gap 0x82952760-0x8295277C
+0x829529D8 = { size = 8 } # pointer-only: pointer stored at 0x8218082C (.rdata); code to the unconditional exit inside .pdata gap 0x829529D8-0x829529E8
+0x829529E0 = { size = 8 } # pointer-only: pointer stored at 0x82180818 (.rdata); code to the unconditional exit inside .pdata gap 0x829529D8-0x829529E8
+0x829529F0 = { size = 8 } # pointer-only: pointer stored at 0x8218086C (.rdata); code to the unconditional exit inside .pdata gap 0x829529F0-0x82952A00
+0x829529F8 = { size = 8 } # pointer-only: pointer stored at 0x821808DC (.rdata); code to the unconditional exit inside .pdata gap 0x829529F0-0x82952A00
+0x82952A10 = { size = 8 } # pointer-only: pointer stored at 0x821808BC (.rdata); code to the unconditional exit inside .pdata gap 0x82952A10-0x82952A20
+0x82952A18 = { size = 8 } # pointer-only: pointer stored at 0x82180880 (.rdata); code to the unconditional exit inside .pdata gap 0x82952A10-0x82952A20
+0x82952A28 = { size = 8 } # pointer-only: pointer stored at 0x82180894 (.rdata); code to the unconditional exit inside .pdata gap 0x82952A28-0x82952AB8
+0x82952A30 = { size = 8 } # pointer-only: pointer stored at 0x82180830 (.rdata) (+1 more); code to the unconditional exit inside .pdata gap 0x82952A28-0x82952AB8
+0x82952A38 = { size = 8 } # pointer-only: pointer stored at 0x821808CC (.rdata); code to the unconditional exit inside .pdata gap 0x82952A28-0x82952AB8
+0x82952A40 = { size = 8 } # pointer-only: pointer stored at 0x82180834 (.rdata); code to the unconditional exit inside .pdata gap 0x82952A28-0x82952AB8
+0x82952A48 = { size = 8 } # pointer-only: pointer stored at 0x82180874 (.rdata); code to the unconditional exit inside .pdata gap 0x82952A28-0x82952AB8
+0x82952A50 = { size = 8 } # pointer-only: pointer stored at 0x82180870 (.rdata); code to the unconditional exit inside .pdata gap 0x82952A28-0x82952AB8
+0x82952A58 = { size = 8 } # pointer-only: pointer stored at 0x821808C8 (.rdata); code to the unconditional exit inside .pdata gap 0x82952A28-0x82952AB8
+0x82952A60 = { size = 8 } # pointer-only: pointer stored at 0x82180844 (.rdata); code to the unconditional exit inside .pdata gap 0x82952A28-0x82952AB8
+0x82952A68 = { size = 8 } # pointer-only: pointer stored at 0x82180878 (.rdata); code to the unconditional exit inside .pdata gap 0x82952A28-0x82952AB8
+0x82952A70 = { size = 8 } # pointer-only: pointer stored at 0x821808D0 (.rdata); code to the unconditional exit inside .pdata gap 0x82952A28-0x82952AB8
+0x82952A78 = { size = 8 } # pointer-only: pointer stored at 0x82180838 (.rdata); code to the unconditional exit inside .pdata gap 0x82952A28-0x82952AB8
+0x82952A80 = { size = 8 } # pointer-only: pointer stored at 0x821808A4 (.rdata); code to the unconditional exit inside .pdata gap 0x82952A28-0x82952AB8
+0x82952A88 = { size = 8 } # pointer-only: pointer stored at 0x82180868 (.rdata); code to the unconditional exit inside .pdata gap 0x82952A28-0x82952AB8
+0x82952A90 = { size = 8 } # pointer-only: pointer stored at 0x821808C0 (.rdata); code to the unconditional exit inside .pdata gap 0x82952A28-0x82952AB8
+0x82952A98 = { size = 8 } # pointer-only: pointer stored at 0x82180860 (.rdata); code to the unconditional exit inside .pdata gap 0x82952A28-0x82952AB8
+0x82952AA0 = { size = 8 } # pointer-only: pointer stored at 0x82180840 (.rdata); code to the unconditional exit inside .pdata gap 0x82952A28-0x82952AB8
+0x82952AA8 = { size = 8 } # pointer-only: pointer stored at 0x82180828 (.rdata); code to the unconditional exit inside .pdata gap 0x82952A28-0x82952AB8
+0x82952AB0 = { size = 8 } # pointer-only: pointer stored at 0x82180820 (.rdata); code to the unconditional exit inside .pdata gap 0x82952A28-0x82952AB8
+0x829531D0 = { size = 8 } # pointer-only: pointer stored at 0x82180CF4 (.rdata); code to the unconditional exit inside .pdata gap 0x829531D0-0x829531E8
+0x829531D8 = { size = 8 } # pointer-only: pointer stored at 0x82180CF8 (.rdata); code to the unconditional exit inside .pdata gap 0x829531D0-0x829531E8
+0x829531E0 = { size = 8 } # pointer-only: pointer stored at 0x82180CFC (.rdata); code to the unconditional exit inside .pdata gap 0x829531D0-0x829531E8
+0x82953480 = { size = 8 } # pointer-only: pointer stored at 0x82180CD8 (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x82953488 = { size = 8 } # pointer-only: pointer stored at 0x82180D64 (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x82953490 = { size = 8 } # pointer-only: pointer stored at 0x82180CE4 (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x82953498 = { size = 8 } # pointer-only: pointer stored at 0x82180D74 (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x829534A0 = { size = 8 } # pointer-only: pointer stored at 0x82180CDC (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x829534A8 = { size = 8 } # pointer-only: pointer stored at 0x82180CCC (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x829534B0 = { size = 8 } # pointer-only: pointer stored at 0x82180D1C (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x829534B8 = { size = 8 } # pointer-only: pointer stored at 0x82180D18 (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x829534C0 = { size = 8 } # pointer-only: pointer stored at 0x82180D70 (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x829534C8 = { size = 8 } # pointer-only: pointer stored at 0x82180D3C (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x829534D0 = { size = 8 } # pointer-only: pointer stored at 0x82180D20 (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x829534D8 = { size = 8 } # pointer-only: pointer stored at 0x82180CEC (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x829534E0 = { size = 8 } # pointer-only: pointer stored at 0x82180D4C (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x829534E8 = { size = 8 } # pointer-only: pointer stored at 0x82180D10 (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x829534F0 = { size = 8 } # pointer-only: pointer stored at 0x82180D78 (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x829534F8 = { size = 8 } # pointer-only: pointer stored at 0x82180CE0 (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x82953500 = { size = 8 } # pointer-only: pointer stored at 0x82180D68 (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x82953508 = { size = 8 } # pointer-only: pointer stored at 0x82180CC8 (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x82953510 = { size = 8 } # pointer-only: pointer stored at 0x82180D08 (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x82953518 = { size = 8 } # pointer-only: pointer stored at 0x82180CE8 (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x82953520 = { size = 8 } # pointer-only: pointer stored at 0x82180CD0 (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x82953528 = { size = 8 } # pointer-only: pointer stored at 0x82180D0C (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x82953530 = { size = 8 } # pointer-only: pointer stored at 0x82180CD4 (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x82953538 = { size = 8 } # pointer-only: pointer stored at 0x82180CC0 (.rdata); code to the unconditional exit inside .pdata gap 0x82953480-0x82953540
+0x82953548 = { size = 8 } # pointer-only: pointer stored at 0x82180D14 (.rdata); code to the unconditional exit inside .pdata gap 0x82953548-0x82953558
+0x82953550 = { size = 8 } # pointer-only: pointer stored at 0x82180D84 (.rdata); code to the unconditional exit inside .pdata gap 0x82953548-0x82953558
+0x82953560 = { size = 8 } # pointer-only: pointer stored at 0x82180D04 (.rdata); code to the unconditional exit inside .pdata gap 0x82953560-0x82953568
+0x82953A10 = { size = 8 } # pointer-only: pointer stored at 0x82181140 (.rdata); code to the unconditional exit inside .pdata gap 0x82953A10-0x82953A18
+0x82953CF0 = { size = 8 } # pointer-only: pointer stored at 0x821811C0 (.rdata); code to the unconditional exit inside .pdata gap 0x82953CF0-0x82953D58
+0x82953CF8 = { size = 8 } # pointer-only: pointer stored at 0x82181134 (.rdata); code to the unconditional exit inside .pdata gap 0x82953CF0-0x82953D58
+0x82953D00 = { size = 8 } # pointer-only: pointer stored at 0x82181128 (.rdata); code to the unconditional exit inside .pdata gap 0x82953CF0-0x82953D58
+0x82953D08 = { size = 8 } # pointer-only: pointer stored at 0x82181194 (.rdata); code to the unconditional exit inside .pdata gap 0x82953CF0-0x82953D58
+0x82953D10 = { size = 8 } # pointer-only: pointer stored at 0x82181158 (.rdata); code to the unconditional exit inside .pdata gap 0x82953CF0-0x82953D58
+0x82953D18 = { size = 8 } # pointer-only: pointer stored at 0x821811B0 (.rdata); code to the unconditional exit inside .pdata gap 0x82953CF0-0x82953D58
+0x82953D20 = { size = 8 } # pointer-only: pointer stored at 0x82181110 (.rdata); code to the unconditional exit inside .pdata gap 0x82953CF0-0x82953D58
+0x82953D28 = { size = 8 } # pointer-only: pointer stored at 0x82181150 (.rdata); code to the unconditional exit inside .pdata gap 0x82953CF0-0x82953D58
+0x82953D30 = { size = 8 } # pointer-only: pointer stored at 0x82181130 (.rdata); code to the unconditional exit inside .pdata gap 0x82953CF0-0x82953D58
+0x82953D38 = { size = 8 } # pointer-only: pointer stored at 0x82181118 (.rdata); code to the unconditional exit inside .pdata gap 0x82953CF0-0x82953D58
+0x82953D40 = { size = 8 } # pointer-only: pointer stored at 0x82181154 (.rdata); code to the unconditional exit inside .pdata gap 0x82953CF0-0x82953D58
+0x82953D48 = { size = 8 } # pointer-only: pointer stored at 0x8218111C (.rdata); code to the unconditional exit inside .pdata gap 0x82953CF0-0x82953D58
+0x82953D50 = { size = 8 } # pointer-only: pointer stored at 0x82181108 (.rdata); code to the unconditional exit inside .pdata gap 0x82953CF0-0x82953D58
+0x82953D60 = { size = 8 } # pointer-only: pointer stored at 0x8218115C (.rdata); code to the unconditional exit inside .pdata gap 0x82953D60-0x82953DD0
+0x82953D68 = { size = 8 } # pointer-only: pointer stored at 0x82181170 (.rdata); code to the unconditional exit inside .pdata gap 0x82953D60-0x82953DD0
+0x82953D70 = { size = 8 } # pointer-only: pointer stored at 0x8218114C (.rdata); code to the unconditional exit inside .pdata gap 0x82953D60-0x82953DD0
+0x82953D78 = { size = 8 } # pointer-only: pointer stored at 0x8218116C (.rdata); code to the unconditional exit inside .pdata gap 0x82953D60-0x82953DD0
+0x82953D80 = { size = 8 } # pointer-only: pointer stored at 0x82181120 (.rdata); code to the unconditional exit inside .pdata gap 0x82953D60-0x82953DD0
+0x82953D88 = { size = 8 } # pointer-only: pointer stored at 0x821811AC (.rdata); code to the unconditional exit inside .pdata gap 0x82953D60-0x82953DD0
+0x82953D90 = { size = 8 } # pointer-only: pointer stored at 0x8218112C (.rdata); code to the unconditional exit inside .pdata gap 0x82953D60-0x82953DD0
+0x82953D98 = { size = 8 } # pointer-only: pointer stored at 0x821811BC (.rdata); code to the unconditional exit inside .pdata gap 0x82953D60-0x82953DD0
+0x82953DA0 = { size = 8 } # pointer-only: pointer stored at 0x82181124 (.rdata); code to the unconditional exit inside .pdata gap 0x82953D60-0x82953DD0
+0x82953DA8 = { size = 8 } # pointer-only: pointer stored at 0x82181114 (.rdata); code to the unconditional exit inside .pdata gap 0x82953D60-0x82953DD0
+0x82953DB0 = { size = 8 } # pointer-only: pointer stored at 0x82181164 (.rdata); code to the unconditional exit inside .pdata gap 0x82953D60-0x82953DD0
+0x82953DB8 = { size = 8 } # pointer-only: pointer stored at 0x82181160 (.rdata); code to the unconditional exit inside .pdata gap 0x82953D60-0x82953DD0
+0x82953DC0 = { size = 8 } # pointer-only: pointer stored at 0x821811B8 (.rdata); code to the unconditional exit inside .pdata gap 0x82953D60-0x82953DD0
+0x82953DC8 = { size = 8 } # pointer-only: pointer stored at 0x82181184 (.rdata); code to the unconditional exit inside .pdata gap 0x82953D60-0x82953DD0
+0x829CE910 = { size = 68 } # pointer-only: pointer stored at 0x821A10E8 (.rdata); code to the unconditional exit inside .pdata gap 0x829CE910-0x829CE954
+0x82A154E8 = { size = 8 } # pointer-only: pointer stored at 0x821AD1C0 (.rdata); code to the unconditional exit inside .pdata gap 0x82A154E8-0x82A154F0
+0x82A15508 = { size = 16 } # pointer-only: pointer stored at 0x821AD18C (.rdata) (+3 more); code to the unconditional exit inside .pdata gap 0x82A15508-0x82A15518
+0x82A155D8 = { size = 8 } # pointer-only: pointer stored at 0x821AD208 (.rdata); code to the unconditional exit inside .pdata gap 0x82A155D8-0x82A155E0
+0x82A156A0 = { size = 8 } # pointer-only: pointer stored at 0x821AD254 (.rdata); code to the unconditional exit inside .pdata gap 0x82A156A0-0x82A156A8
+0x82A31308 = { size = 16 } # pointer-only: pointer stored at 0x821B1E78 (.rdata); code to the unconditional exit inside .pdata gap 0x82A31308-0x82A3131C
+0x82AA5198 = { size = 16 } # pointer-only: address built at 0x82AA5304 (lis/addi); code to the unconditional exit inside .pdata gap 0x82AA5198-0x82AA51C8
+0x82AA51F8 = { size = 16 } # pointer-only: address built at 0x82503948 (lis/addi) (+2 more); code to the unconditional exit inside .pdata gap 0x82AA51D8-0x82AA5218
+0x82AA5238 = { size = 16 } # pointer-only: address built at 0x82503970 (lis/addi) (+2 more); code to the unconditional exit inside .pdata gap 0x82AA5228-0x82AA5278
+0x82AB4850 = { size = 8 } # pointer-only: pointer stored at 0x821BD18C (.rdata); code to the unconditional exit inside .pdata gap 0x82AB4850-0x82AB4858
+0x82AE5320 = { size = 32 } # pointer-only: pointer stored at 0x821BE118 (.rdata); code to the unconditional exit inside .pdata gap 0x82AE5320-0x82AE5344
+0x82AEAE98 = { size = 8 } # pointer-only: pointer stored at 0x8203582C (.rdata) (+1 more); code to the unconditional exit inside .pdata gap 0x82AEAE98-0x82AEAEA0
+0x82AF0108 = { size = 20 } # pointer-only: pointer stored at 0x821BF770 (.rdata); code to the unconditional exit inside .pdata gap 0x82AF0108-0x82AF011C
+0x82AF0130 = { size = 20 } # pointer-only: pointer stored at 0x821BF774 (.rdata); code to the unconditional exit inside .pdata gap 0x82AF0130-0x82AF0144
+0x82AF0158 = { size = 20 } # pointer-only: pointer stored at 0x821BF778 (.rdata); code to the unconditional exit inside .pdata gap 0x82AF0158-0x82AF016C
+0x82AF01C0 = { size = 32 } # pointer-only: pointer stored at 0x821BF784 (.rdata); code to the unconditional exit inside .pdata gap 0x82AF01C0-0x82AF01E4
+0x82B01E98 = { size = 8 } # pointer-only: pointer stored at 0x821C14EC (.rdata); code to the unconditional exit inside .pdata gap 0x82B01E98-0x82B01EA0
+0x82B1DA20 = { size = 16 } # pointer-only: pointer stored at 0x821C2D54 (.rdata) (+2 more); code to the unconditional exit inside .pdata gap 0x82B1DA20-0x82B1DA30
+0x82B1DA40 = { size = 16 } # pointer-only: pointer stored at 0x821C2D58 (.rdata) (+2 more); code to the unconditional exit inside .pdata gap 0x82B1DA40-0x82B1DA50
+0x82B1DA60 = { size = 16 } # pointer-only: pointer stored at 0x821C2D5C (.rdata) (+2 more); code to the unconditional exit inside .pdata gap 0x82B1DA60-0x82B1DA70
+0x82B1DA80 = { size = 16 } # pointer-only: pointer stored at 0x821C2D4C (.rdata) (+2 more); code to the unconditional exit inside .pdata gap 0x82B1DA80-0x82B1DA90
+0x82B1DAA0 = { size = 28 } # pointer-only: pointer stored at 0x821C2D60 (.rdata) (+2 more); code to the unconditional exit inside .pdata gap 0x82B1DAA0-0x82B1DAC0
+0x82B30788 = { size = 12 } # pointer-only: pointer stored at 0x821070B8 (.rdata) (+3 more); code to the unconditional exit inside .pdata gap 0x82B30788-0x82B30794
+0x82B49088 = { size = 24 } # pointer-only: pointer stored at 0x82107654 (.rdata); code to the unconditional exit inside .pdata gap 0x82B49088-0x82B490B8
+0x82B490A0 = { size = 24 } # pointer-only: pointer stored at 0x8210765C (.rdata); code to the unconditional exit inside .pdata gap 0x82B49088-0x82B490B8
+0x82B497A0 = { size = 24 } # pointer-only: pointer stored at 0x8210768C (.rdata) (+2 more); code to the unconditional exit inside .pdata gap 0x82B497A0-0x82B497E4
+0x82B497B8 = { size = 24 } # pointer-only: pointer stored at 0x82107690 (.rdata) (+2 more); code to the unconditional exit inside .pdata gap 0x82B497A0-0x82B497E4
+0x82B497D0 = { size = 20 } # pointer-only: pointer stored at 0x82107694 (.rdata) (+2 more); code to the unconditional exit inside .pdata gap 0x82B497A0-0x82B497E4
+0x82B4AC68 = { size = 20 } # pointer-only: pointer stored at 0x821074F0 (.rdata) (+1 more); code to the unconditional exit inside .pdata gap 0x82B4AC68-0x82B4AC7C
+0x82B4AF68 = { size = 32 } # pointer-only: pointer stored at 0x82107870 (.rdata); code to the unconditional exit inside .pdata gap 0x82B4AF68-0x82B4B008
+0x82B4AF88 = { size = 32 } # pointer-only: pointer stored at 0x82107878 (.rdata); code to the unconditional exit inside .pdata gap 0x82B4AF68-0x82B4B008
+0x82B4AFA8 = { size = 32 } # pointer-only: pointer stored at 0x82107864 (.rdata); code to the unconditional exit inside .pdata gap 0x82B4AF68-0x82B4B008
+0x82B4AFC8 = { size = 32 } # pointer-only: pointer stored at 0x8210786C (.rdata); code to the unconditional exit inside .pdata gap 0x82B4AF68-0x82B4B008
+0x82B4AFE8 = { size = 32 } # pointer-only: pointer stored at 0x82107874 (.rdata); code to the unconditional exit inside .pdata gap 0x82B4AF68-0x82B4B008
+0x82B4D778 = { size = 24 } # pointer-only: pointer stored at 0x821CC368 (.rdata); code to the unconditional exit inside .pdata gap 0x82B4D778-0x82B4D7A0
+0x82B4D790 = { size = 16 } # pointer-only: pointer stored at 0x821CC36C (.rdata); code to the unconditional exit inside .pdata gap 0x82B4D778-0x82B4D7A0
+0x82B884D8 = { size = 8 } # pointer-only: pointer stored at 0x821D7BE0 (.rdata); code to the unconditional exit inside .pdata gap 0x82B884D8-0x82B884E0
+0x82B8C610 = { size = 8 } # pointer-only: pointer stored at 0x821D7CC4 (.rdata) (+4 more); code to the unconditional exit inside .pdata gap 0x82B8C610-0x82B8C620
+0x82B8C618 = { size = 8 } # pointer-only: pointer stored at 0x821D7D04 (.rdata); code to the unconditional exit inside .pdata gap 0x82B8C610-0x82B8C620
+0x82B8C628 = { size = 8 } # pointer-only: pointer stored at 0x821D7CD4 (.rdata) (+4 more); code to the unconditional exit inside .pdata gap 0x82B8C628-0x82B8C698
+0x82B8C630 = { size = 8 } # pointer-only: pointer stored at 0x821D7CF8 (.rdata) (+4 more); code to the unconditional exit inside .pdata gap 0x82B8C628-0x82B8C698
+0x82B8C638 = { size = 88 } # pointer-only: pointer stored at 0x821D7D24 (.rdata) (+2 more); code to the unconditional exit inside .pdata gap 0x82B8C628-0x82B8C698
+0x82B8C690 = { size = 8 } # pointer-only: pointer stored at 0x821D7CB8 (.rdata) (+2 more); code to the unconditional exit inside .pdata gap 0x82B8C628-0x82B8C698
+0x82B91C88 = { size = 8 } # pointer-only: pointer stored at 0x821D7CFC (.rdata) (+4 more); code to the unconditional exit inside .pdata gap 0x82B91C88-0x82B91CB8
+0x82B91C90 = { size = 8 } # pointer-only: pointer stored at 0x821D7CC8 (.rdata) (+4 more); code to the unconditional exit inside .pdata gap 0x82B91C88-0x82B91CB8
+0x82B91C98 = { size = 8 } # pointer-only: pointer stored at 0x821D7CBC (.rdata) (+4 more); code to the unconditional exit inside .pdata gap 0x82B91C88-0x82B91CB8
+0x82B91CA0 = { size = 8 } # pointer-only: pointer stored at 0x821D7CE0 (.rdata) (+4 more); code to the unconditional exit inside .pdata gap 0x82B91C88-0x82B91CB8
+0x82B91CA8 = { size = 8 } # pointer-only: pointer stored at 0x821D7CDC (.rdata) (+4 more); code to the unconditional exit inside .pdata gap 0x82B91C88-0x82B91CB8
+0x82B91CB0 = { size = 8 } # pointer-only: pointer stored at 0x821D8074 (.rdata); code to the unconditional exit inside .pdata gap 0x82B91C88-0x82B91CB8
+0x82B91CC0 = { size = 8 } # pointer-only: pointer stored at 0x821D8060 (.rdata) (+1 more); code to the unconditional exit inside .pdata gap 0x82B91CC0-0x82B91DD4
+0x82B91CC8 = { size = 8 } # pointer-only: pointer stored at 0x821D7CC0 (.rdata) (+4 more); code to the unconditional exit inside .pdata gap 0x82B91CC0-0x82B91DD4
+0x82B91CD0 = { size = 8 } # pointer-only: pointer stored at 0x821D8028 (.rdata) (+1 more); code to the unconditional exit inside .pdata gap 0x82B91CC0-0x82B91DD4
+0x82B91CD8 = { size = 8 } # pointer-only: pointer stored at 0x821D7CD0 (.rdata) (+4 more); code to the unconditional exit inside .pdata gap 0x82B91CC0-0x82B91DD4
+0x82B91CE0 = { size = 244 } # pointer-only: pointer stored at 0x821D8094 (.rdata); code to the unconditional exit inside .pdata gap 0x82B91CC0-0x82B91DD4
+0x82B93050 = { size = 8 } # pointer-only: pointer stored at 0x821D8058 (.rdata) (+1 more); code to the unconditional exit inside .pdata gap 0x82B93050-0x82B93160
+0x82B93058 = { size = 8 } # pointer-only: pointer stored at 0x821D7CD8 (.rdata) (+4 more); code to the unconditional exit inside .pdata gap 0x82B93050-0x82B93160
+0x82B93060 = { size = 252 } # pointer-only: pointer stored at 0x821D815C (.rdata); code to the unconditional exit inside .pdata gap 0x82B93050-0x82B93160
+0x82B937A0 = { size = 8 } # pointer-only: pointer stored at 0x821D818C (.rdata); code to the unconditional exit inside .pdata gap 0x82B937A0-0x82B937A8
+0x82B965E0 = { size = 44 } # pointer-only: pointer stored at 0x821D8344 (.rdata); code to the unconditional exit inside .pdata gap 0x82B965E0-0x82B9660C
+0x82B97A88 = { size = 8 } # pointer-only: pointer stored at 0x821D8264 (.rdata) (+3 more); code to the unconditional exit inside .pdata gap 0x82B97A88-0x82B97A90
+0x82B9D1B0 = { size = 24 } # pointer-only: pointer stored at 0x821D84AC (.rdata); code to the unconditional exit inside .pdata gap 0x82B9D1B0-0x82B9D1C8
+0x82B9E020 = { size = 8 } # pointer-only: pointer stored at 0x821D8444 (.rdata); code to the unconditional exit inside .pdata gap 0x82B9E020-0x82B9E028
+0x82BBB530 = { size = 8 } # pointer-only: pointer stored at 0x821DD00C (.rdata) (+2 more); code to the unconditional exit inside .pdata gap 0x82BBB530-0x82BBB538
+0x82BBBA38 = { size = 8 } # pointer-only: pointer stored at 0x821DD054 (.rdata); code to the unconditional exit inside .pdata gap 0x82BBBA38-0x82BBBA48
+0x82BBBA40 = { size = 8 } # pointer-only: pointer stored at 0x821DD064 (.rdata); code to the unconditional exit inside .pdata gap 0x82BBBA38-0x82BBBA48
+0x82BBD2B0 = { size = 8 } # pointer-only: pointer stored at 0x821DD108 (.rdata) (+1 more); code to the unconditional exit inside .pdata gap 0x82BBD2B0-0x82BBD2B8
+0x82BF0770 = { size = 8 } # pointer-only: pointer stored at 0x821FA5F4 (.rdata); code to the unconditional exit inside .pdata gap 0x82BF0770-0x82BF0778
+0x82C09840 = { size = 4 } # pointer-only: pointer stored at 0x821FE3CC (.rdata); code to the unconditional exit inside .pdata gap 0x82C09840-0x82C09844
+0x82C2E638 = { size = 24 } # pointer-only: address built at 0x823A60A4 (lis/addi); code to the unconditional exit inside .pdata gap 0x82C2E638-0x82C2E664
+0x82C2E650 = { size = 20 } # pointer-only: address built at 0x82C1A720 (lis/addi); code to the unconditional exit inside .pdata gap 0x82C2E638-0x82C2E664
+0x82C2E698 = { size = 20 } # pointer-only: address built at 0x82C1A8F8 (lis/addi); code to the unconditional exit inside .pdata gap 0x82C2E698-0x82C2E6AC
+0x82C2EC68 = { size = 4 } # pointer-only: address built at 0x82C1CDB0 (lis/addi); code to the unconditional exit inside .pdata gap 0x82C2EC68-0x82C2EC6C
+0x82C2ECE8 = { size = 12 } # pointer-only: address built at 0x82C1D0C8 (lis/addi); code to the unconditional exit inside .pdata gap 0x82C2ECE8-0x82C2ECF4
+
+# (2026-11-02, stage 3 link) 11 entries in the import-thunk table 0x82C30630-0x82C312D0 (0x82C30EB0 ... 0x82C311C0)
+# were removed: they are xboxkrnl import stubs (NtOpenFile, NtCreateFile, NtClose, NtReadFile, ... by ordinal) whose
+# addresses the game keeps in a .data table at 0x82CCF900; declaring them as functions replaced the imports with
+# undefined sub_ symbols (link error). ptrscan.py now takes all registered functions, imports included, as known.
+
+# Pass 3: exact-shape thunks in gaps that no pointer the scan sees reaches (the vtables or pointer arithmetic that do
+# are not visible statically): lwz r12,0(r3); lwz r11,N(r12); mtctr r11; bctr / addi r3,r3,N; b f / lwz r3,N(r3); b f
+# with f a function start.
+0x82253248 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,228(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x82253258 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,260(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x82253268 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,276(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x82253288 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,308(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x822532A8 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,340(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x822532E8 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,264(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x82253368 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,252(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x82253378 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,268(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x82253398 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,300(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x8248BD38 = { size = 8 } # member-forwarding thunk: lwz r3,220(r3); b 0x8248DF98 (a function); in a .pdata gap, no direct caller
+0x8290F4F0 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,108(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x8290F510 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,140(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x8290F520 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,156(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x8290F550 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,128(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x8290F5A0 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,148(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x82AA51A8 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,60(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x82AA51B8 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,16(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x82AA51D8 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,48(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x82AA51E8 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,64(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x82AA5208 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,20(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x82AA5228 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,52(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x82AA5248 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,24(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x82AA5258 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,40(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
+0x82AA5268 = { size = 16 } # virtual-call thunk: lwz r12,0(r3); lwz r11,56(r12); mtctr r11; bctr; in a .pdata gap, no direct caller
