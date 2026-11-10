@@ -112,7 +112,10 @@ if(PLUME_D3D12_AGILITY_SDK_ENABLED)
 endif()
 
 if(PLUME_PLATFORM_SWITCH)
-    if(NOT EXISTS "${PLUME_SWITCH_NVK_LIBRARY}")
+    # ffxiii2-nx (2026-11-10, GitHub package): the driver library is needed only when it is linked
+    # (PLUME_SWITCH_NVK_LINK, OFF for the deko3d build): a build without the Mesa Horizon SDK uses devkitPro's portlibs
+    # and plume's own Vulkan headers (contrib/Vulkan-Headers).
+    if(PLUME_SWITCH_NVK_LINK AND NOT EXISTS "${PLUME_SWITCH_NVK_LIBRARY}")
         message(FATAL_ERROR "PLUME_SWITCH_NVK_LIBRARY does not exist: ${PLUME_SWITCH_NVK_LIBRARY}")
     endif()
     target_compile_definitions(plume PUBLIC
