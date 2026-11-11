@@ -4,6 +4,8 @@
 /logs/
 /SD/
 /.tools/
+# the single-.exe builder (tools/gh/launcher/build_exe.ps1): made locally, never committed
+/FFXIII-2-NX-Builder*.exe
 /app/out/
 /app/assets
 /app/generated/

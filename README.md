@@ -57,6 +57,22 @@ right way up, animated GIFs use their first frame. The window shows a preview of
 (e.g. `icon.png`) in the repository's folder is used by default. Your picture is only used for your own build and is
 never part of this repository (`icon.*` is ignored by git); without one, the NRO has libnx's default icon.
 
+### One .exe (optional)
+
+`tools/gh/launcher/build_exe.ps1` packs the builder into a single program, `FFXIII-2-NX-Builder.exe` (about 125 MB:
+the builder window plus this repository's files; no game data, and the build still downloads its tools):
+
+```bat
+powershell -ExecutionPolicy Bypass -File tools\gh\launcher\build_exe.ps1
+```
+
+It needs git and uses the .NET Framework 4 compiler that Windows 10/11 already has. Started, the .exe asks for a folder
+(default `C:\FFXIII-2-NX`), unpacks the builder there and opens the builder window; later starts open the window
+straight away. A newer .exe updates the folder first (never while the builder window is open or a build runs there);
+an older .exe never overwrites a newer builder. Your SD folder, settings and downloaded tools are never touched. The .exe
+is not part of this repository (ignored by git). It is not signed, so Windows SmartScreen asks once
+(*More info* → *Run anyway*).
+
 ### The command line
 
 Download this repository (green **Code** button → *Download ZIP*, or `git clone`), then in its folder:
@@ -208,7 +224,8 @@ recorded on the console in New Bodhum and the opening battle). The notes are in 
 ## Layout
 
 - `FFXIII-2-NX Builder.bat`, `build_switch.cmd`, `tools/gh/` — the builder window (`builder_gui.ps1`), the one-command
-  Switch build (`build_switch.ps1`, `iso_tool.py`) and the prebuilt PC tools in `bin/`.
+  Switch build (`build_switch.ps1`, `iso_tool.py`), the prebuilt PC tools in `bin/` and the single-.exe launcher
+  (`launcher/`).
 - `app/` — the game project: hooks, the renderer (`src/renut_engine`), the options menu, the codegen settings
   (`renut_config.toml`, `renut_manifest.toml`, `config/`), the native copies (`src/cpu/hot`); `app/generated*` is made
   by the build.
