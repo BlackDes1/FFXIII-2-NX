@@ -67,6 +67,8 @@ if (-not [Environment]::Is64BitProcess -and [Environment]::Is64BitOperatingSyste
 }
 
 $ErrorActionPreference = 'Stop'
+# Windows' own cmd.exe by full path: an MSYS2 'usr\bin' on PATH (devkitPro's installer adds it) has a file named cmd.
+$cmdExe = Join-Path $env:SystemRoot 'System32\cmd.exe'
 $ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
@@ -193,7 +195,7 @@ function Remove-Made([string]$p) {
     }
     if (-not $ok) { Warn "not deleted (outside the build folders): $full"; return }
     $item = Get-Item -LiteralPath $full -Force
-    if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { cmd /c rmdir "$full" | Out-Null; return }
+    if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { & $cmdExe /c rmdir "$full" | Out-Null; return }
     Remove-Item -LiteralPath $full -Recurse -Force -ErrorAction SilentlyContinue
     if (Test-Path -LiteralPath $full) { Warn "could not delete $full (a program still uses it?)" }
 }
@@ -448,7 +450,7 @@ if (-not (IsDone 'codegen')) {
     if (Test-Path -LiteralPath $assets) {
         $it = Get-Item -LiteralPath $assets -Force
         if (-not ($it.Attributes -band [IO.FileAttributes]::ReparsePoint)) { Fail "app\assets exists and is not a link made by this script: move it away yourself" }
-        cmd /c rmdir "$assets" | Out-Null   # the link only, never its target's files
+        & $cmdExe /c rmdir "$assets" | Out-Null   # the link only, never its target's files
     }
     New-Item -ItemType Junction -Path $assets -Target $assetsSrc | Out-Null
     foreach ($d in @('app\generated', 'app\generated_zones')) { Remove-Made (Join-Path $repo $d) }
@@ -639,7 +641,7 @@ if (-not (IsDone 'cleanup')) {
     } else {
         Say 'cleanup: the files the build made (only the SD folder and the logs stay)'
         $assets = Join-Path $repo 'app\assets'
-        if (Test-Path -LiteralPath $assets) { cmd /c rmdir "$assets" | Out-Null }
+        if (Test-Path -LiteralPath $assets) { & $cmdExe /c rmdir "$assets" | Out-Null }
         foreach ($d in @('out', 'app\out', 'app\generated', 'app\generated_zones', 'sdk\out')) { Remove-Made (Join-Path $repo $d) }
         foreach ($d in @('codegen_assets', 'tu', 'dlc_x', 'nro_icon.jpg')) { Remove-Made (Join-Path $Work $d) }
     }
