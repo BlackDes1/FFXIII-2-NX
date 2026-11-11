@@ -612,6 +612,17 @@ if (-not (IsDone 'package')) {
         if ($LASTEXITCODE -ge 8) { Fail "copying the disc files failed (robocopy $LASTEXITCODE)" }
         $global:LASTEXITCODE = 0
     }
+    # The title update's executable patches (default.xexp and the four z*.xexp, 1.7 MB) must ALSO sit next to the
+    # disc's .xex files: the runtime loads a module's patch as its sibling "game:\<name>.xexp". Without them the game
+    # runs the disc's unpatched default.xex, whose entry point the TU6 code does not have ("No function registered at
+    # 82B31D08"), and it ends at once (found on the console 2026-11-11). With -NoGameFiles they go into an otherwise
+    # empty game_root\ of the SD folder, so copying the folder puts them next to the disc files already on the card.
+    $gameRoot = Join-Path $sd 'game_root'
+    New-Item -ItemType Directory -Force $gameRoot | Out-Null
+    $patches = @(Get-ChildItem -LiteralPath $tu -Recurse -File -Filter '*.xexp' | Where-Object { $_.Name -match '^(default|z\d{4})\.xexp$' })
+    if (-not ($patches | Where-Object { $_.Name -eq 'default.xexp' })) { Fail "no default.xexp in $tu (the title update step): run again with -From extract" }
+    foreach ($x in $patches) { Copy-Item -Force -LiteralPath $x.FullName -Destination (Join-Path $gameRoot $x.Name) }
+    Note "title update patches next to the disc's executables: $(($patches | ForEach-Object Name) -join ', ')"
     Done 'package'
 }
 
@@ -663,5 +674,5 @@ Say ("done: {0}  (NRO {1:N1} MB, SHA-256 {2}; SD folder {3:N1} GB)" -f $Out, ((G
 if ($SdCard) { Write-Host "Copied to $(Join-Path $SdCard 'switch\ffxiii2-nx'). Start the game from the Homebrew Menu" }
 else { Write-Host 'Copy the "switch" folder inside it to the root of your SD card, then start the game from the Homebrew Menu' }
 Write-Host 'in title-takeover mode (hold R while starting any game), not from the album.'
-if ($NoGameFiles) { Write-Host 'Your game files: they must already be in sdmc:/switch/ffxiii2-nx/game_root (disc) and update (title update 6).' }
+if ($NoGameFiles) { Write-Host 'Your game files: they must already be in sdmc:/switch/ffxiii2-nx/game_root (disc) and update (title update 6); the SD folder''s game_root adds the title update''s .xexp files next to the disc''s .xex files.' }
 Write-Host "Logs: $logDir"

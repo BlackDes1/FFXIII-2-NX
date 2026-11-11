@@ -144,7 +144,7 @@ Copy the folder `SD\switch` to the root of the SD card:
   ffxiii2.toml         your settings (language, button layout); the options menu writes it too
   deko3d_glsl.bin      the game's shaders, translated from your files
   deko3d_shaders.bin   the shader cache (the console adds what it compiles itself as you play)
-  game_root/           your disc's files (default.xex, alba_data, ...)
+  game_root/           your disc's files (default.xex, alba_data, ...) + title update 6's default.xexp and z*.xexp
   update/              title update 6's files (default.xexp, the z*.xexp, white_patch_*)
   dlc/                 (optional) your DLC packages: installed by the game at its next start (about 3 minutes, black screen)
 ```
