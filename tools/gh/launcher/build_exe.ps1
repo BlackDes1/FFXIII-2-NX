@@ -21,7 +21,9 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) { throw 'git is needed
 $hash = (& git -C $repo rev-parse --short=8 HEAD).Trim()
 $time = (& git -C $repo log -1 --format=%cd --date=format:%Y%m%d%H%M HEAD).Trim()
 if ($LASTEXITCODE -ne 0 -or -not $hash -or $time -notmatch '^\d{12}$') { throw 'git could not read HEAD' }
-if (& git -C $repo status --porcelain --untracked-files=no) { Write-Warning 'uncommitted changes: the .exe holds HEAD only (commit them first to include them)' }
+# core.autocrlf=input / core.filemode=false: a checkout made by another git (Git for Windows vs. MSYS2's) is not
+# reported as changed only because of line endings or file modes.
+if (& git -C $repo -c core.autocrlf=input -c core.filemode=false status --porcelain --untracked-files=no) { Write-Warning 'uncommitted changes: the .exe holds HEAD only (commit them first to include them)' }
 
 $tmp = Join-Path ([IO.Path]::GetTempPath()) ('ffxiii2nx_exe_' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
 New-Item -ItemType Directory -Force $tmp | Out-Null
