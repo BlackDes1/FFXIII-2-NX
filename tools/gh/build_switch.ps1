@@ -559,7 +559,13 @@ if (-not (IsDone 'switch')) {
     # compilation of N LTRANS jobs", one core for the longest part of the build). devkitPro's MSYS2 has make; its folder
     # goes at the END of PATH for the build (our CMake, Ninja and Python are called by full path). If that link fails,
     # the build is run again without it (serial, as before).
-    $msysRoots = @((Join-Path $dkp 'msys2'), (Split-Path -Parent (Split-Path -Parent $dkp))) | Where-Object { Test-Path (Join-Path $_ 'usr\bin\pacman.exe') }
+    # MSYS2 of an installed devkitPro (C:\devkitPro\msys2) or of the local one (<Tools>\msys64\opt\devkitpro -> msys64).
+    # An installed devkitPro sits at a drive's root (C:\devkitPro), where the folder two levels up is empty: skip it.
+    $msysRoots = @(Join-Path $dkp 'msys2')
+    $up = Split-Path -Parent $dkp
+    if ($up) { $up = Split-Path -Parent $up }
+    if ($up) { $msysRoots += $up }
+    $msysRoots = @($msysRoots | Where-Object { $_ -and (Test-Path -LiteralPath (Join-Path $_ 'usr\bin\pacman.exe')) })
     $make = $msysRoots | ForEach-Object { Join-Path $_ 'usr\bin\make.exe' } | Where-Object { Test-Path $_ } | Select-Object -First 1
     if (-not $make -and $msysRoots) {
         $r = @($msysRoots)[0]
