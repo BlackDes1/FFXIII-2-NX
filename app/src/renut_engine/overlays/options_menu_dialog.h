@@ -259,8 +259,26 @@ class OptionsMenuDialog : public rex::ui::ImGuiDialog {
       std::ifstream in(config_path_);
       for (std::string line; std::getline(in, line);) lines.push_back(line);
     }
+    // 2026-11-12 (the user: "Saved options in the menu dont apply after restart"): the keys were added at the END of
+    // the file, behind the [input_p1] table of the shipped file, so TOML read them as that table's and the game ignored
+    // them. Now: a key is replaced only where it stands before the first table; a copy of it inside a table is taken
+    // out; new keys go in front of the first table.
+    auto first_table = [&lines] {
+      for (size_t i = 0; i < lines.size(); ++i) {
+        const size_t p = lines[i].find_first_not_of(" \t");
+        if (p != std::string::npos && lines[i][p] == '[') return i;
+      }
+      return lines.size();
+    };
+    auto is_key = [](const std::string& l, const char* key) {
+      const size_t p = l.find_first_not_of(" \t");
+      if (p == std::string::npos || l.compare(p, std::strlen(key), key) != 0) return false;
+      const size_t q = l.find_first_not_of(" \t", p + std::strlen(key));
+      return q != std::string::npos && l[q] == '=';
+    };
     bool header = false;
-    for (const std::string& l : lines) header = header || l.find("# Options menu") != std::string::npos;
+    for (size_t i = 0, n = first_table(); i < n; ++i)
+      header = header || lines[i].find("# Options menu") != std::string::npos;
     for (const Item& item : items_) {
       if (!item.available) continue;
       for (const auto& [key, value] : item.choices[item.pending].sets) {
@@ -268,24 +286,28 @@ class OptionsMenuDialog : public rex::ui::ImGuiDialog {
                             value.find_first_not_of("-0123456789.") != std::string::npos;
         const std::string text = std::string(key) + " = " + (quoted ? "\"" + value + "\"" : value);
         bool replaced = false;
-        for (std::string& l : lines) {
-          size_t p = l.find_first_not_of(" \t");
-          if (p == std::string::npos || l.compare(p, std::strlen(key), key) != 0) continue;
-          size_t q = l.find_first_not_of(" \t", p + std::strlen(key));
-          if (q == std::string::npos || l[q] != '=') continue;
-          l = text;
-          replaced = true;
+        const size_t table = first_table();
+        for (size_t i = lines.size(); i-- > 0;) {
+          if (!is_key(lines[i], key)) continue;
+          if (i < table) {
+            lines[i] = text;
+            replaced = true;
+          } else {
+            lines.erase(lines.begin() + std::ptrdiff_t(i));
+          }
         }
         if (!replaced) {
+          size_t at = first_table();
           if (!header) {
-            lines.push_back("");
-            lines.push_back("# Options menu (Start + Select): written by the game");
+            lines.insert(lines.begin() + std::ptrdiff_t(at), "# Options menu (Start + Select): written by the game");
+            ++at;
             header = true;
           }
-          lines.push_back(text);
+          lines.insert(lines.begin() + std::ptrdiff_t(at), text);
         }
       }
     }
+    // A leftover "# Options menu" comment behind the tables (older saves) stays: it is only a comment.
     std::ofstream out(config_path_, std::ios::trunc);
     for (const std::string& l : lines) out << l << "\n";
     out.close();
