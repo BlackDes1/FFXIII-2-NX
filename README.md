@@ -177,6 +177,7 @@ Lines marked *(restart)* take effect the next time you start the game; all other
 
 | Line | Choices | What it does |
 |---|---|---|
+| **GPU clock** | **460 MHz** (stock, default), 537 MHz | Raises the Switch GPU clock while the game runs, set by the game itself (no sys-clk needed). The console's own clock comes back when the game closes. |
 | **CPU clock** | **1020 MHz** (stock, default), 1224 MHz, 1428 MHz, 1581 MHz | Raises the Switch CPU clock while the game runs, set by the game itself (no sys-clk needed). The console's own clock comes back when the game closes. GPU (460.8 MHz) and RAM (1331.2 MHz) stay at Nintendo's own handheld values. **1224 and 1428 MHz are an overclock — read the warning below.** |
 
 ### Game and controls

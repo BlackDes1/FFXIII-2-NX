@@ -197,6 +197,10 @@ class OptionsMenuDialog : public rex::ui::ImGuiDialog {
         false,
         {Choice{"1020 MHz (stock)", {{"ffns_cpu_mhz", "0"}}}, Choice{"1224 MHz", {{"ffns_cpu_mhz", "1224"}}},
          Choice{"1428 MHz", {{"ffns_cpu_mhz", "1428"}}}, Choice{"1581 MHz", {{"ffns_cpu_mhz", "1581"}}}});
+    add("System", "GPU clock",
+        "Overclock: the game raises the GPU clock itself (no sys-clk needed). Fewer frame drops in heavy scenes, but "
+        "more battery use and heat. The console's own clock comes back when the game closes.",
+        false, {Choice{"460 MHz (stock)", {{"ffns_gpu_mhz", "0"}}}, Choice{"537 MHz", {{"ffns_gpu_mhz", "537"}}}});
     add("Game", "Language",
         "The game's language (text and menus) of the European disc.", true,
         {Choice{"English", {{"user_language", "1"}}}, Choice{"French", {{"user_language", "4"}}},

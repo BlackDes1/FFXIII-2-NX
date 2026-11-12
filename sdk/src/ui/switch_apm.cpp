@@ -380,6 +380,7 @@ extern "C" void RexSwitchApmWatch(void) {
  */
 namespace {
 std::atomic<int> g_cpu_want_mhz{0};
+std::atomic<bool> g_cpu_given_up{false};  // another clock tool owns the CPU clock for this run
 std::atomic<u32> g_cpu_stock_hz{0};  // the clock before our first change; 0 = never changed
 std::atomic<bool> g_cpu_thread_started{false};
 std::atomic<bool> g_cpu_stop{false};
@@ -402,6 +403,40 @@ bool CpuClock(u32* read_hz, const u32* set_hz) {
  */
 constexpr int kCpuFightResets = 25;
 
+// FFXIII-2-Native-Switch (2026-11-12, ffns_gpu_mhz, the user: "GPU can use 537"): the GPU clock the same way, from
+// the same thread (the shared GPU session of RexSwitchClockRead / Set). 0 = as the console sets it (handheld 460.8 with
+// banjo_gpu_boost); 537 = 537.6 MHz. The clock found before the first set is put back at 0 and at exit.
+std::atomic<int> g_gpu_want_mhz{0};
+std::atomic<u32> g_gpu_stock_hz{0};
+constexpr u32 kGpuOcHz = 537600000u;
+void GpuPinStep() {
+  static bool restored = true;
+  static int sets = 0, polls = 0;
+  const int want = g_gpu_want_mhz.load(std::memory_order_relaxed);
+  if (want <= 0 && restored) return;
+  u32 now_hz = 0;
+  if (!RexSwitchClockRead(1, &now_hz) || !now_hz) return;
+  u32 goal;
+  if (want > 0) {
+    if (g_gpu_stock_hz.load(std::memory_order_relaxed) == 0)
+      g_gpu_stock_hz.store(now_hz < kGpuOcHz - 5000000u ? now_hz : 460800000u, std::memory_order_relaxed);
+    goal = kGpuOcHz;
+    restored = false;
+  } else {
+    goal = g_gpu_stock_hz.load(std::memory_order_relaxed);
+    restored = true;
+  }
+  if (goal && (now_hz > goal ? now_hz - goal : goal - now_hz) > 5000000u) {
+    const bool ok = RexSwitchClockSet(1, goal) != 0;
+    if (sets++ < 8 || !ok)
+      std::fprintf(stderr, "[gpu clock] found at %.1f MHz, set to %.1f MHz%s (ffns_gpu_mhz)\n", double(now_hz) / 1e6,
+                   double(goal) / 1e6, ok ? "" : ": REFUSED");
+  }
+  if (++polls % 3000 == 0)
+    std::fprintf(stderr, "[gpu clock] %d reads, set %d times, now %.1f MHz, wanted %.1f MHz\n", polls, sets,
+                 double(now_hz) / 1e6, double(goal) / 1e6);
+}
+
 void CpuPinThread(void*) {
   u64 last_report = armGetSystemTick();
   int polls = 0, resets = 0, refused = 0, failures = 0, fight_windows = 0;
@@ -409,6 +444,7 @@ void CpuPinThread(void*) {
   bool restored = true;
   while (!g_cpu_stop.load(std::memory_order_relaxed)) {
     svcSleepThread(kCpuPollNs);
+    GpuPinStep();
     const int want = g_cpu_want_mhz.load(std::memory_order_relaxed);
     const u32 stock = g_cpu_stock_hz.load(std::memory_order_relaxed);
     if (want <= 0 && restored) continue;
@@ -448,21 +484,30 @@ void CpuPinThread(void*) {
         std::fprintf(stderr, "[cpu clock] another clock tool (hoc-clk / sys-clk?) keeps setting the CPU to %.1f MHz: "
                              "the game stops setting it and leaves the CPU clock to that tool for this run\n",
                      double(seen_hz) / 1e6);
-        return;
+        g_cpu_want_mhz.store(0, std::memory_order_relaxed);  // (the thread goes on for the GPU clock)
+        g_cpu_given_up.store(true, std::memory_order_relaxed);
+        fight_windows = 0;
       }
     }
   }
 }
 }  // namespace
 
+extern "C" void RexSwitchApmSetGpuMhz(int mhz) {
+  g_gpu_want_mhz.store(mhz >= 500 ? 537 : 0, std::memory_order_relaxed);  // 537.6 MHz or the console's own
+}
+
 extern "C" void RexSwitchApmSetCpuMhz(int mhz) {
+  if (g_cpu_given_up.load(std::memory_order_relaxed)) return;
   if (mhz > 0) mhz = mhz < 1020 ? 1020 : (mhz > 1581 ? 1581 : mhz);
   g_cpu_want_mhz.store(mhz < 0 ? 0 : mhz, std::memory_order_relaxed);
 }
 
 // Called once a second (switch_perf.cpp): starts the pin thread the first time a clock is wanted.
 extern "C" void RexSwitchApmCpuWatch(void) {
-  if (g_cpu_want_mhz.load(std::memory_order_relaxed) <= 0 || g_cpu_thread_started.exchange(true)) return;
+  if ((g_cpu_want_mhz.load(std::memory_order_relaxed) <= 0 && g_gpu_want_mhz.load(std::memory_order_relaxed) <= 0) ||
+      g_cpu_thread_started.exchange(true))
+    return;
   u64 mask = 0;
   svcGetInfo(&mask, InfoType_CoreMask, CUR_PROCESS_HANDLE, 0);
   const int core = (mask & (1u << 3)) ? 3 : -2;
@@ -480,10 +525,13 @@ extern "C" void RexSwitchApmCpuRestore(void) {
   svcSleepThread(50000000ULL);  // the pin thread's last pass (20 ms) is over before the clock goes back
   u32 stock = g_cpu_stock_hz.load(std::memory_order_relaxed);
   if (stock != 0) CpuClock(nullptr, &stock);
+  const u32 gpu_stock = g_gpu_stock_hz.load(std::memory_order_relaxed);
+  if (gpu_stock != 0) RexSwitchClockSet(1, gpu_stock);  // ffns_gpu_mhz
 }
 
 #else   // !REX_PLATFORM_SWITCH
 extern "C" void RexSwitchApmSetCpuMhz(int) {}
+extern "C" void RexSwitchApmSetGpuMhz(int) {}
 extern "C" void RexSwitchApmCpuWatch(void) {}
 extern "C" void RexSwitchApmCpuRestore(void) {}
 extern "C" void RexSwitchApmRequestGpuMhz(int) {}

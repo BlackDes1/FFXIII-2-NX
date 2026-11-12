@@ -968,6 +968,8 @@ struct TicOverlay {
     {
       const std::string mhz = rex::cvar::GetFlagByName("ffns_cpu_mhz");
       RexSwitchApmSetCpuMhz(mhz.empty() ? 0 : std::atoi(mhz.c_str()));
+      const std::string gpu_mhz = rex::cvar::GetFlagByName("ffns_gpu_mhz");  // 2026-11-12
+      RexSwitchApmSetGpuMhz(gpu_mhz.empty() ? 0 : std::atoi(gpu_mhz.c_str()));
       RexSwitchApmCpuWatch();
     }
     presented = presented_now;

@@ -201,6 +201,10 @@ REXCVAR_DEFINE_INT32(ffns_cpu_mhz, 0, "FFNS/Performance",
                      "Switch: the CPU clock in MHz, set by the game itself (clkrst, no sys-clk) and re-applied every "
                      "second; 0 = the console's own (1020). 1224, 1428 or 1581 = an overclock (more power and heat). "
                      "Clamped to 1020..1581; the console's own clock is put back at exit");
+REXCVAR_DEFINE_INT32(ffns_gpu_mhz, 0, "FFNS/Performance",
+                     "Switch: the GPU clock, set by the game itself (clkrst, no sys-clk): 0 = the console's own "
+                     "(handheld 460.8 MHz), 537 = 537.6 MHz, an overclock (more power and heat). The console's own "
+                     "clock is put back at exit");
 REXCVAR_DEFINE_BOOL(banjo_gpu_boost, true, "Banjo/Enhancements",
                     "Handheld: ask for the official 460.8 MHz GPU profile (memory clock checked unchanged, else "
                     "reverted); docked: nothing")
