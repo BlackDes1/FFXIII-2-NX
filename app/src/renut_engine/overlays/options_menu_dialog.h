@@ -189,8 +189,7 @@ class OptionsMenuDialog : public rex::ui::ImGuiDialog {
         "picture (sharp letters; about 1 ms of GPU). Off: everything at the render resolution. Only with Upscaling "
         "set to Bilinear.",
         false, {Choice{"720p (default)", {{"ffns_ui_native", "true"}}}, Choice{"Render resolution", {{"ffns_ui_native", "false"}}}});
-    add("Graphics", "FPS counter", "Frames per second in the top left corner.", false,
-        {Choice{"Off", {{"banjo_show_fps", "false"}}}, Choice{"On", {{"banjo_show_fps", "true"}}}});
+    // 2026-11-12 (the user: "remove the fps counter"): no "FPS counter" line; the counter stays off.
     add("System", "CPU clock",
         "Overclock: the game raises the CPU clock itself (no sys-clk needed). Faster, but more battery use and heat. "
         "The console's own clock comes back when the game closes.",
@@ -250,7 +249,7 @@ class OptionsMenuDialog : public rex::ui::ImGuiDialog {
       return;
     }
     for (const auto& [key, value] : item.choices[choice].sets) rex::cvar::SetFlagByName(key, value);
-    if (fps_) fps_->showFPS = Current("banjo_show_fps") == "true";
+    if (fps_) fps_->showFPS = false;  // 2026-11-12: the FPS counter is removed
   }
 
   // The keys of every line into the player's file: an existing "key = ..." line is replaced, a missing one appended.

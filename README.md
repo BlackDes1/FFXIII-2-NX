@@ -170,7 +170,6 @@ Lines marked *(restart)* take effect the next time you start the game; all other
 | **MSAA** *(restart)* | **2x** (the game's own), off | The game's 2x multisampling of the 3D image. Off: rougher edges, less GPU time and memory. |
 | **SMAA** | **Off**, on | Edge smoothing (SMAA 1x) of the finished 3D image before the HUD is drawn: smoother edges for a little GPU time. Works well together with MSAA off. |
 | **Upscaling** | **Bilinear** (default), bilinear + sharpen, FSR 1, FSR 1 sharp | How the picture is scaled to the screen when the render resolution is below 720p. *Sharpen* adds AMD FidelityFX RCAS sharpening (about +1.3 ms GPU per frame). *FSR 1* is AMD FidelityFX Super Resolution 1 (edge-adaptive EASU upscaling + RCAS, about +6.2 ms GPU per frame: sharper picture, can cost frames in GPU-heavy scenes). *FSR 1 sharp* uses stronger sharpening. Has no effect at 720p. |
-| **FPS counter** | **Off**, on | Shows frames per second in the top-left corner. |
 | Animate distant characters, Level of detail (models) | — | Shown greyed: not available yet. |
 
 ### System

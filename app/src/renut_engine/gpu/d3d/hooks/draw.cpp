@@ -1368,10 +1368,36 @@ extern "C" REX_FUNC(sub_82962070) {
     if (g_ffns_shadow_frame.exchange(swaps, std::memory_order_relaxed) != swaps)
       g_ffns_shadow_calls.store(0, std::memory_order_relaxed);
     const u32 index = g_ffns_shadow_calls.fetch_add(1, std::memory_order_relaxed);
-    if (index == 1 && swaps % u32(every) != 0) {
+    // 2026-11-12 (the user: the characters' shadow flickers, is misplaced or disappears on the field): the map was told
+    // by the call's place in the frame (the second call since the last Swap). The calls come from the job system, not in
+    // step with the Swap, so a Swap between a frame's two calls made the NEXT frame's first call "the second": the near
+    // map (the characters' shadows) was left out for a frame. Now the far map is told by its object (r3 of the call: one
+    // object a map, sub_82962BA8): the object that is mostly the second call, and it is skipped by its own count.
+    struct Map { u32 object; u32 second, first, draws; };
+    static Map maps[4] = {};
+    static std::mutex maps_mutex;
+    static std::atomic<uint64_t> near_saved{0};
+    bool skip = false;
+    {
+      std::lock_guard<std::mutex> lock(maps_mutex);
+      Map *m = nullptr;
+      for (Map &e : maps)
+        if (e.object == ctx.r3.u32 || !e.object) { m = &e; break; }
+      if (m) {
+        m->object = ctx.r3.u32;
+        if (index == 1) ++m->second; else ++m->first;
+        if (m->second + m->first > 100000) { m->second /= 2; m->first /= 2; }
+        const bool far_map = m->second + m->first >= 16 && m->second > 3 * m->first;
+        skip = far_map && (m->draws++ % u32(every)) != 0;
+        if (!far_map && index == 1 && swaps % u32(every) != 0)
+          near_saved.fetch_add(1, std::memory_order_relaxed);  // the old rule would have left this one out
+      }
+    }
+    if (skip) {
       const uint64_t n = g_ffns_shadow_skipped.fetch_add(1, std::memory_order_relaxed) + 1;
-      if (n == 1 || n % 3000 == 0)
-        RGPU_INFO("[ffns] ffns_shadow_far_every {}: second shadow map skipped {} times", every, n);
+      if (n == 1 || n % 1000 == 0)
+        RGPU_INFO("[ffns] ffns_shadow_far_every {}: far shadow map skipped {} times; other maps the old rule (second "
+                  "call of the frame) would have skipped: {}", every, n, near_saved.load(std::memory_order_relaxed));
       return;
     }
   }
