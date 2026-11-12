@@ -126,6 +126,21 @@ std::atomic<uint64_t> g_last_flip_ns{0};    // steady_clock: the blank that flip
 std::atomic<uint32_t> g_early_blanks{0};
 std::atomic<uint32_t> g_blank_seen_swaps{0};  // the device's swap count the blank thread has given its interrupt for
 
+constexpr uint64_t kFlipFreshNs = 250000000ull;  // an early blank only this long after a flip of the game's
+constexpr uint32_t kEnginePointer = 0x82E9A434u;  // lis -32022; lwz -23500: FF's engine object (sub_82887E18)
+
+// The blank FF's engine flipped its last frame at (engine + 6884, written by its swap callback sub_82887E18 when the
+// blank count reaches its target): the word that changes exactly when a frame of the game's is flipped.
+template <typename Kernel>
+uint32_t EngineFlipBlank(Kernel* kernel) {
+  uint32_t engine_be = 0, word = 0;
+  if (auto* p = kernel->memory()->template TranslateVirtual<uint8_t*>(kEnginePointer)) std::memcpy(&engine_be, p, 4);
+  const uint32_t engine = __builtin_bswap32(engine_be);
+  if (engine < 0x10000u) return 0;
+  if (auto* e = kernel->memory()->template TranslateVirtual<uint8_t*>(engine + 6884)) std::memcpy(&word, e, 4);
+  return word;
+}
+
 uint64_t SteadyNs() {
   return uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(
                       std::chrono::steady_clock::now().time_since_epoch())
@@ -137,7 +152,8 @@ uint64_t SteadyNs() {
 void NoteSwapForVblank() {
   if (!g_vblank_running.load(std::memory_order_acquire) || !REXCVAR_GET(ffns_late_flip)) return;
   const uint64_t flip = g_last_flip_ns.load(std::memory_order_acquire);
-  if (!flip || SteadyNs() < flip + 2 * kBlankNs) return;  // in time: the grid's blank flips it
+  const uint64_t now_ns = SteadyNs();
+  if (!flip || now_ns < flip + 2 * kBlankNs || now_ns > flip + kFlipFreshNs) return;  // in time: the grid's blank
   {
     std::lock_guard<std::mutex> lock(g_blank_mutex);
     g_blank_early = true;
@@ -171,8 +187,11 @@ void StartRenutVblank() {
           if (early) {
             // Decided here, after this thread has noted the last flip (the game's Swap can come before the note: the
             // frame event wakes it inside the blank): only 2 blank periods or more after that flip.
+            // And only while the game's own flips are seen going by (kFlipFreshNs): its loading and menu screens
+            // pace themselves another way (FF's flip word stands still there), and get the plain grid.
             const uint64_t flip = g_last_flip_ns.load(std::memory_order_acquire);
-            if (!flip || SteadyNs() < flip + 2 * kBlankNs) continue;
+            const uint64_t now_ns = SteadyNs();
+            if (!flip || now_ns < flip + 2 * kBlankNs || now_ns > flip + kFlipFreshNs) continue;
             // Only with a Swap the blanks have not seen yet (one that came while a blank was running is flipped).
             static_assert(sizeof(uint32_t) == 4);
             uint32_t swaps_now_be = 0;
@@ -181,8 +200,7 @@ void StartRenutVblank() {
             g_early_blanks.fetch_add(1, std::memory_order_relaxed);
             if (next - clock::now() < interval / 2) next += interval;  // the grid's blank right after it is left out
           }
-          uint32_t flips_before_be = 0;
-          if (auto* d = kernel->memory()->TranslateVirtual<uint8_t*>(device)) std::memcpy(&flips_before_be, d + 16976, 4);
+          const uint32_t flip_before = EngineFlipBlank(kernel);
           static uint32_t ticks = 0;
           if (++ticks % 600 == 0)
           {
@@ -246,11 +264,7 @@ void StartRenutVblank() {
             uint64_t cp_args[] = {1, device};
             kernel->function_dispatcher()->ExecuteInterrupt(thread->thread_state(), kInterruptHandler, cp_args, 2);
           }
-          if (auto* d = kernel->memory()->TranslateVirtual<uint8_t*>(device)) {
-            uint32_t flips_after_be = 0;
-            std::memcpy(&flips_after_be, d + 16976, 4);
-            if (flips_after_be != flips_before_be) g_last_flip_ns.store(SteadyNs(), std::memory_order_release);
-          }
+          if (EngineFlipBlank(kernel) != flip_before) g_last_flip_ns.store(SteadyNs(), std::memory_order_release);
         }
         return 0;
       }));
