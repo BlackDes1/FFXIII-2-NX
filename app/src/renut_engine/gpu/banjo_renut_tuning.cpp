@@ -226,7 +226,10 @@ REXCVAR_DEFINE_BOOL(banjo_renut_depth_words_lazy, true, "Banjo/Enhancements",
                     "the emulator route: the depth of field's, 1 of 5 resolves a frame; the shadow maps' never), and "
                     "in the first 300 resolves of each. A read of words not written is served by writing them then "
                     "from the unchanged source; the 10 s depth resolve line counts both. Same pixels");
-REXCVAR_DEFINE_BOOL(banjo_deko3d_depth_handover, true, "Banjo/Enhancements",
+// ffxiii2-nx 2026-11-12: OFF by default. On the field (New Bodhum, console runs f_m4 / f_prev / f_nohand) every shadow
+// vanished or stood in the wrong place a few seconds after the player moved: ~2 resolves a frame (the two shadow maps)
+// were "not drawn", their images taken at the clear, and the maps were then sampled stale. Off: shadows right.
+REXCVAR_DEFINE_BOOL(banjo_deko3d_depth_handover, false, "Banjo/Enhancements",
                     "deko3d renderer (2026-10-19, GPU): a depth resolve of a whole depth target into a texture of its "
                     "size that needs no words is not drawn: the texture is sampled from the target's image until the "
                     "target is bound again (then the resolve is drawn after all), and at the target's next whole clear "
