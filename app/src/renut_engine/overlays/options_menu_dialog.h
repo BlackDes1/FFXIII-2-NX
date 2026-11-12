@@ -196,7 +196,7 @@ class OptionsMenuDialog : public rex::ui::ImGuiDialog {
         "The console's own clock comes back when the game closes.",
         false,
         {Choice{"1020 MHz (stock)", {{"ffns_cpu_mhz", "0"}}}, Choice{"1224 MHz", {{"ffns_cpu_mhz", "1224"}}},
-         Choice{"1428 MHz", {{"ffns_cpu_mhz", "1428"}}}});
+         Choice{"1428 MHz", {{"ffns_cpu_mhz", "1428"}}}, Choice{"1581 MHz", {{"ffns_cpu_mhz", "1581"}}}});
     add("Game", "Language",
         "The game's language (text and menus) of the European disc.", true,
         {Choice{"English", {{"user_language", "1"}}}, Choice{"French", {{"user_language", "4"}}},
