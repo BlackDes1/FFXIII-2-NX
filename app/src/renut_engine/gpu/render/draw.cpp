@@ -1289,15 +1289,23 @@ void DropSmallerDepth(const GuestDevice &device, Targets &t, uint64_t vs_hash, u
 }
 
 // ffns_ui_native: a frame of 2D screens takes the UI target from its first draw or clear into the screen's surface
-// (surfaces.h, UiMenuFrameWantedLocked). True when the targets must be gathered again.
-bool StartUiMenuFrame(const Targets &t) {
-  if (!t.color_count || !UiMenuFrameWantedLocked(t.colors[0]) || !UiScaleMenuFrameLocked(t.colors[0]))
-    return false;
-  g_bound.framebuffer = nullptr;
-  g_bound.pipeline = nullptr;
-  g_bound.layout = false;
-  g_bound.viewport_set = false;
-  return true;
+// (surfaces.h, UiMenuFrameWantedLocked). At the draw's or clear's entry, before anything of it is bound: the pass
+// binds its own pipeline, sets and buffers.
+void SyncBound(VideoState &s);
+void StartUiMenuFrame(const GuestDevice &device) {
+  if (!UiMenuFramePendingLocked())
+    return;
+  const u32 va = device.U32(d3d::kDeviceOffsetRenderTargets);
+  HostSurface *color = va ? GetHostSurfaceLocked(va) : nullptr;
+  if (!color || !UiMenuFrameWantedLocked(color) || !Video::EnsureCommandListLocked())
+    return;
+  SyncBound(State());
+  if (UiScaleMenuFrameLocked(color)) {
+    g_bound.framebuffer = nullptr;
+    g_bound.pipeline = nullptr;
+    g_bound.layout = false;
+    g_bound.viewport_set = false;
+  }
 }
 
 // gpu_profile: draws into 't', by their host size and attachments.
@@ -4386,6 +4394,7 @@ bool DrawStateLocked(const u8 *device_state, const DrawCall &call, const ReplayC
   const GuestDevice device(device_state);
   if (!device.valid())
     return (Ffxiii2DrawExit(0, call, device_state), false);
+  StartUiMenuFrame(device);  // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native): before anything is bound
 
   const u32 vs_va = device.U32(d3d::kDeviceOffsetVertexShader);
   auto *vs = FindShaderLocked(vs_va, RecordKind::VertexShader);
@@ -4599,14 +4608,8 @@ bool DrawStateLocked(const u8 *device_state, const DrawCall &call, const ReplayC
       g_targets_reuse.targets = targets;
     }
   }
-  // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native): a frame of 2D screens: the UI target from here on; then, for
-  // any draw into the UI target, the scene's smaller depth target left out or replaced (DropSmallerDepth).
-  if (!ffxiii2_export_only && StartUiMenuFrame(targets)) {
-    Targets again;
-    if (GatherTargets(device, again))
-      targets = again;
-    g_targets_reuse.seq = 0;
-  }
+  // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native): for a draw into the UI target, the scene's smaller depth
+  // target left out or replaced (DropSmallerDepth).
   if (targets.depth && targets.color_count && targets.depth->scale != targets.scale)
     DropSmallerDepth(device, targets, vs->hash, ps ? ps->hash : 0);
   // banjo-nx (2026-10-20, NOT exact, banjo_renut_fur_shells = N > 1, the user's call): the fur family's meshes are drawn
@@ -5963,15 +5966,10 @@ void ClearStateLocked(const u8 *device_state, u32 flags, const ClearRect *rect,
   if (!device.valid())
     return;
   static const bool rt_log = REXCVAR_GET(ffxiii2_diag_rt_start_s) > 0;
+  StartUiMenuFrame(device);  // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native)
   Targets targets;
   if (!GatherTargets(device, targets))
     return;
-  // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native): as a draw (DrawStateLocked).
-  if (StartUiMenuFrame(targets)) {
-    targets = Targets{};
-    if (!GatherTargets(device, targets))
-      return;
-  }
 
   // D3D clamps clears to the viewport (CDevice viewport floats at 0x3168).
   ClearRect r = rect ? *rect : ClearRect{0, 0, int32_t(targets.width), int32_t(targets.height)};

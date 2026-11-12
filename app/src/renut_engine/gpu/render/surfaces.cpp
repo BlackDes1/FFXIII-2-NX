@@ -737,6 +737,10 @@ void NoteScreenResolveLocked(HostSurface *source) {
   g_frame_resolve_generation = source->generation;
 }
 
+bool UiMenuFramePendingLocked() {
+  return g_ui_native_frame && !g_ui.redirect && g_frames_without_composite >= kMenuFrames && g_screen_source;
+}
+
 bool UiMenuFrameWantedLocked(const HostSurface *color) {
   return g_ui_native_frame && !g_ui.redirect && g_frames_without_composite >= kMenuFrames && color &&
          color == g_screen_source && color->generation == g_screen_source_generation && !color->depth &&

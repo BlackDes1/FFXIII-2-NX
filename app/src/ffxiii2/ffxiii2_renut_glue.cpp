@@ -165,20 +165,21 @@ void StartRenutVblank() {
             early = g_blank_cv.wait_until(lock, next, [] { return g_blank_early; });
             g_blank_early = false;
           }
-          if (!early) {
-            next += interval;
-          } else if (next - clock::now() < interval / 2) {
-            next += interval;  // the grid's blank right after an early one is left out
-          }
+          if (!early) next += interval;
           const uint32_t device = renut::gpu::Video::GuestDevice();
           if (!device) continue;
           if (early) {
+            // Decided here, after this thread has noted the last flip (the game's Swap can come before the note: the
+            // frame event wakes it inside the blank): only 2 blank periods or more after that flip.
+            const uint64_t flip = g_last_flip_ns.load(std::memory_order_acquire);
+            if (!flip || SteadyNs() < flip + 2 * kBlankNs) continue;
             // Only with a Swap the blanks have not seen yet (one that came while a blank was running is flipped).
             static_assert(sizeof(uint32_t) == 4);
             uint32_t swaps_now_be = 0;
             if (auto* d = kernel->memory()->TranslateVirtual<uint8_t*>(device)) std::memcpy(&swaps_now_be, d + 16968, 4);
             if (__builtin_bswap32(swaps_now_be) == g_blank_seen_swaps.load(std::memory_order_relaxed)) continue;
             g_early_blanks.fetch_add(1, std::memory_order_relaxed);
+            if (next - clock::now() < interval / 2) next += interval;  // the grid's blank right after it is left out
           }
           uint32_t flips_before_be = 0;
           if (auto* d = kernel->memory()->TranslateVirtual<uint8_t*>(device)) std::memcpy(&flips_before_be, d + 16976, 4);

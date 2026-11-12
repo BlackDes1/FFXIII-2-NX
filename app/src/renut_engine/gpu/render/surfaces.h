@@ -144,6 +144,8 @@ void NoteScreenResolveLocked(HostSurface *source);
 // Whether a draw or clear into 'color' starts this frame's UI target: a frame of 2D screens, 'color' the surface the
 // frames before resolved to the front buffer, and no redirect yet.
 bool UiMenuFrameWantedLocked(const HostSurface *color);
+// The cheap part of it: such a frame, and its UI target not started yet.
+bool UiMenuFramePendingLocked();
 
 // The host target for the D3DSurface at 'surface_va', created or rebuilt as
 // needed. nullptr for 0 or when the target cannot be created.
