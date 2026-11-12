@@ -49,6 +49,11 @@ void RexSwitchApmSetCpuMhz(int mhz);
 void RexSwitchApmCpuWatch(void);
 void RexSwitchApmCpuRestore(void);
 
+/* 2026-11-11: the game's shared clkrst sessions (0 = CPU, 1 = GPU, 2 = EMC; opened on first use, kept for the run).
+ * Return 1 on success. Everything that reads or sets a clock goes through these (pcv has little session memory). */
+int RexSwitchClockRead(int which, unsigned int* hz);
+int RexSwitchClockSet(int which, unsigned int hz);
+
 #ifdef __cplusplus
 }
 #endif

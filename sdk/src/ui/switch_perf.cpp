@@ -557,29 +557,19 @@ void Report(u64 elapsed_ticks, u64 tick_freq, u64 counters_last[kCounterCount],
   // overclock.
   {
     static bool started = false;
-    static bool has_clkrst = false;
-    static ClkrstSession sessions[3]{};
     static u64 cores_mask = 0;
     if (!started) {
       started = true;
       if (R_FAILED(svcGetInfo(&cores_mask, InfoType_CoreMask, CUR_PROCESS_HANDLE, 0))) {
         cores_mask = 0;
       }
-      if (R_SUCCEEDED(clkrstInitialize())) {
-        static const PcvModuleId modules[3] = {PcvModuleId_CpuBus, PcvModuleId_GPU, PcvModuleId_EMC};
-        has_clkrst = true;
-        for (unsigned i = 0; i < 3; ++i) {
-          if (R_FAILED(clkrstOpenSession(&sessions[i], modules[i], 3))) {
-            has_clkrst = false;
-          }
-        }
-      }
     }
-    u32 hz[3] = {0, 0, 0};
-    if (has_clkrst) {
-      for (unsigned i = 0; i < 3; ++i) {
-        clkrstGetClockRate(&sessions[i], &hz[i]);
-      }
+    // 2026-11-11: the game's shared clkrst sessions (switch_apm.cpp), not 3 of its own: pcv's session memory is small
+    // and ran out during play (Atmosphere fatal 2011-0102 in pcv).
+    unsigned int hz[3] = {0, 0, 0};
+    bool has_clkrst = true;
+    for (int i = 0; i < 3; ++i) {
+      if (!RexSwitchClockRead(i, &hz[i])) has_clkrst = false;
     }
     unsigned cores = 0;
     for (unsigned i = 0; i < 64; ++i) {

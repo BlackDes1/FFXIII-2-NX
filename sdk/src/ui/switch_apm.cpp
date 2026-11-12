@@ -59,6 +59,56 @@
 
 #include <atomic>
 #include <cstdio>
+#include <mutex>
+
+/*
+ * FFXIII-2-Native-Switch (2026-11-11): ONE clkrst session per clock (CPU, GPU, EMC) for the whole run, shared by
+ * everything in the game that reads or sets a clock: this file's apm checks and CPU pin thread, and switch_perf's
+ * "clocks:" line. Before, the game held 4 sessions for the run (3 for the profiler line, 1 for the CPU pin thread)
+ * and opened and closed 2 more for every apm check. clkrst sessions are served by pcv, whose session memory is small
+ * and shared with every other client (hoc-clk / sys-clk and the clock and status overlays). On 2026-11-11 pcv ran out
+ * of it during play (Atmosphere fatal 2011-0102, hipc::ResultOutOfSessionMemory, in pcv; ptm and Bus followed with
+ * 2011-0301): now the game takes at most 3, opened on first use and kept (the process end closes them), and a session
+ * that cannot be opened is not asked for again.
+ */
+namespace {
+std::mutex g_clk_mutex;
+bool g_clk_service_tried = false, g_clk_service = false;
+ClkrstSession g_clk[3]{};
+bool g_clk_tried[3]{}, g_clk_open[3]{};
+constexpr PcvModuleId kClkModules[3] = {PcvModuleId_CpuBus, PcvModuleId_GPU, PcvModuleId_EMC};
+
+// With g_clk_mutex held.
+ClkrstSession* ClockSessionLocked(int which) {
+  if (which < 0 || which > 2) return nullptr;
+  if (!g_clk_service_tried) {
+    g_clk_service_tried = true;
+    g_clk_service = R_SUCCEEDED(clkrstInitialize());
+  }
+  if (!g_clk_service) return nullptr;
+  if (!g_clk_tried[which]) {
+    g_clk_tried[which] = true;
+    g_clk_open[which] = R_SUCCEEDED(clkrstOpenSession(&g_clk[which], kClkModules[which], 3));
+  }
+  return g_clk_open[which] ? &g_clk[which] : nullptr;
+}
+}  // namespace
+
+extern "C" int RexSwitchClockRead(int which, unsigned int* hz) {
+  if (hz) *hz = 0;
+  std::lock_guard<std::mutex> lock(g_clk_mutex);
+  ClkrstSession* s = ClockSessionLocked(which);
+  u32 v = 0;
+  const int ok = s && hz && R_SUCCEEDED(clkrstGetClockRate(s, &v)) ? 1 : 0;
+  if (hz) *hz = v;
+  return ok;
+}
+
+extern "C" int RexSwitchClockSet(int which, unsigned int hz) {
+  std::lock_guard<std::mutex> lock(g_clk_mutex);
+  ClkrstSession* s = ClockSessionLocked(which);
+  return s && R_SUCCEEDED(clkrstSetClockRate(s, hz)) ? 1 : 0;
+}
 
 namespace {
 
@@ -112,32 +162,13 @@ constexpr int kPollSteps = 10;  // 10 x 150 ms = 1,5 s
 constexpr u32 kMarginHz = 20000000u;  // 20 MHz: 1597.5 and 1331.2 are nowhere near each other
 
 /*
- * Real hardware clocks, in Hz. Returns false if clkrst is not available. It is opened and closed on
- * every call on purpose: this runs only a few times per session.
+ * Real hardware clocks, in Hz. Returns false if clkrst is not available. Through the shared sessions above
+ * (2026-11-11: no session is opened and closed per call any more).
  */
 bool ReadClocks(u32& gpu_hz, u32& emc_hz) {
-  gpu_hz = 0;
-  emc_hz = 0;
-  if (R_FAILED(clkrstInitialize())) {
-    return false;
-  }
-  bool ok = true;
-  ClkrstSession ses_gpu{};
-  ClkrstSession ses_emc{};
-  if (R_SUCCEEDED(clkrstOpenSession(&ses_gpu, PcvModuleId_GPU, 3))) {
-    if (R_FAILED(clkrstGetClockRate(&ses_gpu, &gpu_hz))) ok = false;
-    clkrstCloseSession(&ses_gpu);
-  } else {
-    ok = false;
-  }
-  if (R_SUCCEEDED(clkrstOpenSession(&ses_emc, PcvModuleId_EMC, 3))) {
-    if (R_FAILED(clkrstGetClockRate(&ses_emc, &emc_hz))) ok = false;
-    clkrstCloseSession(&ses_emc);
-  } else {
-    ok = false;
-  }
-  clkrstExit();
-  return ok;
+  const bool gpu_ok = RexSwitchClockRead(1, &gpu_hz) != 0;
+  const bool emc_ok = RexSwitchClockRead(2, &emc_hz) != 0;
+  return gpu_ok && emc_ok;
 }
 
 /*
@@ -164,16 +195,7 @@ bool StillMemoryDuring(u32 emc0, u32& gpu, u32& emc) {
  * already changed: that is checked later, which is exactly the lesson of the first attempt).
  */
 bool PinMemory(u32 hz) {
-  bool ok = false;
-  if (R_SUCCEEDED(clkrstInitialize())) {
-    ClkrstSession ses{};
-    if (R_SUCCEEDED(clkrstOpenSession(&ses, PcvModuleId_EMC, 3))) {
-      ok = R_SUCCEEDED(clkrstSetClockRate(&ses, hz));
-      clkrstCloseSession(&ses);
-    }
-    clkrstExit();
-  }
-  return ok;
+  return RexSwitchClockSet(2, hz) != 0;
 }
 
 struct Candidate {
@@ -365,32 +387,24 @@ constexpr u32 kCpuMarginHz = 10000000u;
 constexpr u32 kCpuStockHz = 1020000000u;
 constexpr u64 kCpuPollNs = 20000000ULL;  // 20 ms
 
-// One clkrst session for the run (a rate set through a session might end with it), used by the pin thread only and by
-// the restore at exit.
-bool g_cpu_service = false;
-ClkrstSession g_cpu_session{};
+// The shared CPU session (RexSwitchClockRead / Set, kept for the run: a rate set through a session might end with it).
 Thread g_cpu_thread;
 
-bool CpuSession() {
-  if (g_cpu_service) return true;
-  if (R_FAILED(clkrstInitialize())) return false;
-  if (R_FAILED(clkrstOpenSession(&g_cpu_session, PcvModuleId_CpuBus, 3))) {
-    clkrstExit();
-    return false;
-  }
-  g_cpu_service = true;
-  return true;
+bool CpuClock(u32* read_hz, const u32* set_hz) {
+  return set_hz ? RexSwitchClockSet(0, *set_hz) != 0 : RexSwitchClockRead(0, read_hz) != 0;
 }
 
-bool CpuClock(u32* read_hz, const u32* set_hz) {
-  if (!CpuSession()) return false;
-  return set_hz ? R_SUCCEEDED(clkrstSetClockRate(&g_cpu_session, *set_hz))
-                : R_SUCCEEDED(clkrstGetClockRate(&g_cpu_session, read_hz));
-}
+/*
+ * 2026-11-11: another clock manager (hoc-clk / sys-clk, an overlay) that keeps putting its own CPU clock back is not
+ * fought. Horizon itself resets the clock now and then (a few times in a 10 s window: 3 on 2026-11-11, about 10 in
+ * p10b); a manager polling every few hundred ms does it far more often. Two 10 s windows in a row with more than
+ * kCpuFightResets resets each: the game leaves the CPU clock to that tool for the rest of the run and says so.
+ */
+constexpr int kCpuFightResets = 25;
 
 void CpuPinThread(void*) {
   u64 last_report = armGetSystemTick();
-  int polls = 0, resets = 0, refused = 0, failures = 0;
+  int polls = 0, resets = 0, refused = 0, failures = 0, fight_windows = 0;
   u32 seen_hz = 0;
   bool restored = true;
   while (!g_cpu_stop.load(std::memory_order_relaxed)) {
@@ -427,8 +441,15 @@ void CpuPinThread(void*) {
     if (armTicksToNs(tick - last_report) >= 10000000000ULL) {
       std::fprintf(stderr, "[cpu clock] last 10 s: %d reads, set again %d times (found at %.1f MHz)%s, wanted %.1f MHz\n",
                    polls, resets, double(seen_hz) / 1e6, refused ? " SOME REFUSED" : "", double(goal) / 1e6);
+      fight_windows = (want > 0 && resets > kCpuFightResets) ? fight_windows + 1 : 0;
       polls = resets = refused = 0;
       last_report = tick;
+      if (fight_windows >= 2) {
+        std::fprintf(stderr, "[cpu clock] another clock tool (hoc-clk / sys-clk?) keeps setting the CPU to %.1f MHz: "
+                             "the game stops setting it and leaves the CPU clock to that tool for this run\n",
+                     double(seen_hz) / 1e6);
+        return;
+      }
     }
   }
 }
@@ -469,6 +490,8 @@ extern "C" void RexSwitchApmRequestGpuMhz(int) {}
 extern "C" void RexSwitchApmAllowRam1600(int) {}
 extern "C" void RexSwitchApmApply(void) {}
 extern "C" void RexSwitchApmWatch(void) {}
+extern "C" int RexSwitchClockRead(int, unsigned int* hz) { if (hz) *hz = 0; return 0; }
+extern "C" int RexSwitchClockSet(int, unsigned int) { return 0; }
 #endif  // REX_PLATFORM_SWITCH
 
 
