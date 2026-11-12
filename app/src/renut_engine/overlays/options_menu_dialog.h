@@ -184,6 +184,11 @@ class OptionsMenuDialog : public rex::ui::ImGuiDialog {
          Choice{"Bilinear + sharpen", {{"ffns_fsr", "1"}, {"ffns_fsr_sharpness", "50"}}},
          Choice{"FSR 1", {{"ffns_fsr", "2"}, {"ffns_fsr_sharpness", "50"}}},
          Choice{"FSR 1 sharp", {{"ffns_fsr", "2"}, {"ffns_fsr_sharpness", "20"}}}});
+    add("Graphics", "Text and HUD",
+        "With a render resolution below 720p: text, HUD and menus are drawn at the screen's full 720p over the 3D "
+        "picture (sharp letters; about 1 ms of GPU). Off: everything at the render resolution. Only with Upscaling "
+        "set to Bilinear.",
+        false, {Choice{"720p (default)", {{"ffns_ui_native", "true"}}}, Choice{"Render resolution", {{"ffns_ui_native", "false"}}}});
     add("Graphics", "FPS counter", "Frames per second in the top left corner.", false,
         {Choice{"Off", {{"banjo_show_fps", "false"}}}, Choice{"On", {{"banjo_show_fps", "true"}}}});
     add("System", "CPU clock",

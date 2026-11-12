@@ -72,6 +72,7 @@ REX_IMPORT(__imp__KeQueryPerformanceFrequency, KeQueryPerformanceFrequency, u32(
 REX_IMPORT(__imp__KeGetCurrentProcessType, KeGetCurrentProcessType, u32());
 REX_IMPORT(__imp__VdGetCurrentDisplayGamma, VdGetCurrentDisplayGamma, void(u32, u32));
 
+namespace ffxiii2 { void NoteSwapForVblank(); }  // src/ffxiii2/ffxiii2_renut_glue.cpp
 // ffxiii2-nx: the last Swap's front buffer, for the game's swap interrupt (src/ffxiii2/ffxiii2_renut_glue.cpp).
 std::atomic<uint32_t> g_ffxiii2_last_front_buffer{0};
 
@@ -963,6 +964,7 @@ void D3DDevice_Swap_hook(u32 device_va, u32 front_buffer, u32 /*parameters*/) {
     // buffer for the next frame first, and the frame's last draws (the composite, the HUD) took the new bytes.
     banjo::renut_gpu::checks::QueueKickFlush();
     KickFence(device);
+    ffxiii2::NoteSwapForVblank();  // ffxiii2-nx (2026-11-12, ffns_late_flip): a late frame's blank at once
   }
 
   render_thread::QueueFrame([front_buffer, swap_ordinal] {

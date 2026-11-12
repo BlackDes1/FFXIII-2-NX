@@ -275,6 +275,7 @@ function(renut_gpu_setup TARGET)
         # ffxiii2-nx: not render/smaa.cpp and render/ui_scale.cpp (katamari-nx's; zumasrevenge-nx's layer has neither).
         # FFXIII-2-Native-Switch (2026-11-10): render/smaa.cpp is built (the options menu's SMAA; tools/build/smaa_port_patch.py).
         ${RENUT_GPU_DIR}/render/smaa.cpp
+        ${RENUT_GPU_DIR}/render/ui_scale.cpp  # FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native)
         # FFXIII-2-Native-Switch (2026-11-10): FSR 1 for the scan-out (the options menu's "Upscaling").
         ${RENUT_GPU_DIR}/render/fsr.cpp
         ${RENUT_GPU_DIR}/render/surfaces.cpp
@@ -300,6 +301,10 @@ function(renut_gpu_setup TARGET)
     renut_host_shader(${TARGET} smaa_weights_high_ps ps_6_0)
     renut_host_shader(${TARGET} smaa_blend_ps ps_6_0)
     # FFXIII-2-Native-Switch (2026-11-10): FSR 1 (render/fsr.cpp).
+    # FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native): the 3D image scaled to the display's resolution (render/ui_scale.cpp).
+    renut_host_shader(${TARGET} ui_upscale_ps ps_6_0)
+    renut_host_shader(${TARGET} ui_upscale_bicubic_ps ps_6_0)
+    renut_host_shader(${TARGET} ui_depth_upscale_ps ps_6_0)
     renut_host_shader(${TARGET} fsr_easu_ps ps_6_0)
     renut_host_shader(${TARGET} fsr_rcas_ps ps_6_0)
     renut_host_shader(${TARGET} rectangle_list_gs gs_6_0)

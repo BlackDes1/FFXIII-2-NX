@@ -2,6 +2,7 @@
  * @file    gpu/render/draw.cpp
  */
 #include "renut_engine/gpu/render/draw.h"
+#include "renut_engine/gpu/render/ui_scale.h"  // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native)
 
 #include <algorithm>
 #include <array>
@@ -1247,6 +1248,55 @@ bool GatherTargets(const GuestDevice &device, Targets &t) {
   }
   t.guest_width = d3d::SurfaceWidth(first->size_word);
   t.guest_height = d3d::SurfaceHeight(first->size_word);
+  return true;
+}
+
+// FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native; renut-nx's DropSmallerDepth): after the composite the HUD draws
+// into the UI target (the display's resolution) with the scene's depth target still bound, at the render height:
+// smaller. A deko3d framebuffer is as large as its smallest attachment, so the depth target is left out when the draw
+// neither tests nor writes depth or stencil; a draw that does gets a depth target at the display's resolution, filled
+// from the scene's once a frame (render/ui_scale.cpp). Only a depth target smaller than the first colour target in
+// host pixels (the post-processing buffers at 1x keep the scene's larger one bound, as before).
+void DropSmallerDepth(const GuestDevice &device, Targets &t, uint64_t vs_hash, uint64_t ps_hash) {
+  const HostSurface *c = t.colors[0];
+  HostSurface *d = t.depth;
+  if (d->scale.Size(d->width) >= c->scale.Size(c->width) && d->scale.Size(d->height) >= c->scale.Size(c->height))
+    return;
+  // Used by a stencil test, or a Z test that can fail or writes (ZFUNC ALWAYS without writes is none).
+  const u32 dc = u32(device.dev().m_ControlPacket.DepthControl);
+  if ((dc & 1) || ((dc & 2) && (((dc >> 4) & 7) != 7 || (dc & 4)))) {
+    if (UiRedirectedLocked() && c->scale == UiScale()) {
+      if (d->handed)
+        DepthHandOverBeforeBindLocked(d, nullptr, 0);
+      if (HostSurface *ui = UiDepthAfterCompositeLocked(d)) {
+        t.depth = ui;
+        g_bound.framebuffer = nullptr;
+        g_bound.pipeline = nullptr;
+        g_bound.layout = false;
+        g_bound.viewport_set = false;
+        return;
+      }
+    }
+    banjo::renut_gpu::CountUiDepth(false);
+    static uint32_t logged = 0;
+    if (LogLimited(logged, 16))
+      RGPU_WARN("A draw tests depth or stencil against a depth target smaller than its colour target ({}x{} at "
+                "{:.3g}x, depth {}x{} at {:.3g}x; VS {:016X} PS {:016X}, RB_DEPTHCONTROL {:08X}): the depth target is "
+                "left out", c->width, c->height, c->scale.Factor(), d->width, d->height, d->scale.Factor(), vs_hash,
+                ps_hash, dc);
+  }
+  t.depth = nullptr;
+}
+
+// ffns_ui_native: a frame of 2D screens takes the UI target from its first draw or clear into the screen's surface
+// (surfaces.h, UiMenuFrameWantedLocked). True when the targets must be gathered again.
+bool StartUiMenuFrame(const Targets &t) {
+  if (!t.color_count || !UiMenuFrameWantedLocked(t.colors[0]) || !UiScaleMenuFrameLocked(t.colors[0]))
+    return false;
+  g_bound.framebuffer = nullptr;
+  g_bound.pipeline = nullptr;
+  g_bound.layout = false;
+  g_bound.viewport_set = false;
   return true;
 }
 
@@ -4549,6 +4599,16 @@ bool DrawStateLocked(const u8 *device_state, const DrawCall &call, const ReplayC
       g_targets_reuse.targets = targets;
     }
   }
+  // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native): a frame of 2D screens: the UI target from here on; then, for
+  // any draw into the UI target, the scene's smaller depth target left out or replaced (DropSmallerDepth).
+  if (!ffxiii2_export_only && StartUiMenuFrame(targets)) {
+    Targets again;
+    if (GatherTargets(device, again))
+      targets = again;
+    g_targets_reuse.seq = 0;
+  }
+  if (targets.depth && targets.color_count && targets.depth->scale != targets.scale)
+    DropSmallerDepth(device, targets, vs->hash, ps ? ps->hash : 0);
   // banjo-nx (2026-10-20, NOT exact, banjo_renut_fur_shells = N > 1, the user's call): the fur family's meshes are drawn
   // once a shell, shell by shell (each shell draws every part of the body: RenderDoc of Ryujinx shows the same four
   // parts repeating); of each part's draws in a frame (the same shaders and index range) every Nth is drawn, the first
@@ -5287,11 +5347,21 @@ bool DrawStateLocked(const u8 *device_state, const DrawCall &call, const ReplayC
   }
   // FFXIII-2-Native-Switch (2026-11-10): SMAA right after FF's composite (render/smaa.cpp, as renut-nx's draw.cpp); the
   // passes leave their own targets, pipeline, layout and viewport bound.
-  if (ps && targets.color_count == 1 && !export_count && SmaaAfterPs(ps->hash) && SmaaRunLocked(targets.colors[0])) {
-    g_bound.framebuffer = nullptr;
-    g_bound.pipeline = nullptr;
-    g_bound.layout = false;
-    g_bound.viewport_set = false;
+  // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native): then the image scaled to the display's resolution for the
+  // text and HUD drawn over it (render/ui_scale.cpp).
+  if (ps && targets.color_count == 1 && !export_count && CompositePs(ps->hash)) {
+    const bool smaa = SmaaAfterPs(ps->hash) && SmaaRunLocked(targets.colors[0]);
+    bool scaled = false;
+    if (UiNativeWanted())
+      scaled = UiScaleAfterCompositeLocked(targets.colors[0]);
+    else
+      NoteCompositeLocked();
+    if (smaa || scaled) {
+      g_bound.framebuffer = nullptr;
+      g_bound.pipeline = nullptr;
+      g_bound.layout = false;
+      g_bound.viewport_set = false;
+    }
   }
   return true;
 }
@@ -5896,6 +5966,12 @@ void ClearStateLocked(const u8 *device_state, u32 flags, const ClearRect *rect,
   Targets targets;
   if (!GatherTargets(device, targets))
     return;
+  // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native): as a draw (DrawStateLocked).
+  if (StartUiMenuFrame(targets)) {
+    targets = Targets{};
+    if (!GatherTargets(device, targets))
+      return;
+  }
 
   // D3D clamps clears to the viewport (CDevice viewport floats at 0x3168).
   ClearRect r = rect ? *rect : ClearRect{0, 0, int32_t(targets.width), int32_t(targets.height)};
@@ -5925,6 +6001,25 @@ void ClearStateLocked(const u8 *device_state, u32 flags, const ClearRect *rect,
   }
   if (clear_rect.right <= clear_rect.left || clear_rect.bottom <= clear_rect.top)
     return;
+  // ffns_ui_native: the UI target with the scene's depth target at the render height: each cleared on its own (one
+  // framebuffer would be as large as the smaller).
+  if (targets.depth && targets.color_count && targets.depth->scale != targets.scale) {
+    Targets colors = targets;
+    colors.depth = nullptr;
+    if (flags & 0xF)
+      ClearTargets(colors, flags & 0xF, clear_rect, color, depth, stencil);
+    if (flags & ~0xFu) {
+      Targets only_depth;
+      only_depth.depth = targets.depth;
+      only_depth.width = targets.depth->width;
+      only_depth.height = targets.depth->height;
+      only_depth.scale = targets.depth->scale;
+      only_depth.guest_width = d3d::SurfaceWidth(targets.depth->size_word);
+      only_depth.guest_height = d3d::SurfaceHeight(targets.depth->size_word);
+      ClearTargets(only_depth, flags & ~0xFu, clear_rect, color, depth, stencil);
+    }
+    return;
+  }
   ClearTargets(targets, flags, clear_rect, color, depth, stencil);
 }
 
@@ -6063,6 +6158,8 @@ void ResolveStateLocked(const u8 *device_state, u32 flags, const ClearRect *sour
                                     : device.U32(d3d::kDeviceOffsetRenderTargets + source * 4);
   native::CheckLateHeader(source_va, source == 4);  // ffxiii2-nx (k241, diagnostic)
   HostSurface *surface = GetHostSurfaceLocked(source_va);
+  if (source != 4)
+    NoteScreenResolveLocked(surface);  // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native): the front buffer's source
   static const bool rt_log = REXCVAR_GET(ffxiii2_diag_rt_start_s) > 0;
   if (rt_log)
     RtLog('R', source_va, dest_texture_va, 0, 0, source_rect);

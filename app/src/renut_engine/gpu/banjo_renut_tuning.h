@@ -363,6 +363,12 @@ bool SmaaOn();
 int SmaaQuality();
 double SmaaThreshold();
 std::string SmaaAfterPsList();
+// FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native; render/ui_scale.cpp): the scale pass's filter (0 bilinear, one
+// sample a pixel; 1 bicubic), and its counters (a line every 600 frames: frames scaled, frames already at the display's
+// resolution, UI depth targets filled, depth targets left out).
+int UpscaleFilter();
+void CountUiUpscale(bool scaled);
+void CountUiDepth(bool filled);
 int32_t SmaaCompareSeconds();
 void CountSmaa();
 

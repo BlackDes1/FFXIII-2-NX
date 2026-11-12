@@ -19,6 +19,7 @@
 #include "renut_engine/gpu/banjo_renut_tuning.h"
 #include "renut_engine/gpu/d3d/d3d.h"
 #include "renut_engine/gpu/render/format.h"
+#include "renut_engine/gpu/render/fsr.h"
 #include "renut_engine/gpu/render/graphics_options.h"
 #include "renut_engine/gpu/render/textures.h"
 #include "renut_engine/gpu/guest/guest_memory.h"
@@ -31,6 +32,12 @@
 REXCVAR_DEFINE_INT32(msaa_level, 2, "FFNS/Graphics",
                      "The most MSAA samples a game target gets: 2 = the game's 2x, 1 = off (NOT pixel-identical; "
                      "applies at the next start)");
+// FFXIII-2-Native-Switch (2026-11-12, the user: "The message in the blue boxes is hard to read" / "Yes do it"): see
+// surfaces.h. Not with the options menu's sharpen / FSR 1 upscaling (those take the whole frame at the lowered height).
+REXCVAR_DEFINE_BOOL(ffns_ui_native, true, "FFNS/Graphics",
+                    "deko3d, with a render height below 720: text, HUD and menus drawn at the display's 720 lines "
+                    "over the 3D image scaled up once (render/ui_scale.cpp). Off: the whole frame at the render "
+                    "height, scaled at the scan-out. Applies at the next frame");
 REXCVAR_DEFINE_STRING(renut_resolution, "720p", "Nuts&Bolts/Graphics",
                       "Internal render resolution, by its height: 480p, 720p (the game's own), "
                       "1080p, 1440p or 4K (2160 lines). Applies from the next frame.")
@@ -54,6 +61,25 @@ namespace {
 // ResolutionScale, once latched.
 RenderScale g_resolution_scale;
 bool g_resolution_latched = false;
+
+// FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native; renut-nx's): the composite's UI target and this frame's redirect to
+// it, how many frames in a row have had no composite (kMenuFrames of them: 2D screens), and the surface the last frame
+// resolved to the front buffer (the one a frame of 2D screens draws into).
+constexpr uint32_t kMenuFrames = 30;
+struct UiTarget {
+  HostSurface *scene = nullptr;  // the target it was made for, and that target's generation then
+  uint64_t scene_generation = 0;
+  std::unique_ptr<HostSurface> surface;
+  bool redirect = false;
+};
+UiTarget g_ui, g_ui_depth;
+bool g_composite_seen = false;
+uint32_t g_frames_without_composite = kMenuFrames;
+bool g_ui_native_frame = false;  // UiNativeWanted, latched at the Swap
+const HostSurface *g_frame_resolve_source = nullptr;  // this frame's last whole-screen colour resolve
+uint64_t g_frame_resolve_generation = 0;
+const HostSurface *g_screen_source = nullptr;  // the frame before's
+uint64_t g_screen_source_generation = 0;
 
 struct FramebufferKey {
   const HostSurface *colors[d3d::kMaxRenderTargets] = {};
@@ -159,6 +185,19 @@ void FreeDepthViews(std::vector<DepthImage::View> &views) {
 }
 
 void RetireTarget(HostSurface &surface) {
+  // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native): the composite's target goes, and its UI target with it.
+  for (UiTarget *u : {&g_ui, &g_ui_depth}) {
+    if (&surface == u->scene) {
+      u->scene = nullptr;
+      u->redirect = false;
+      if (u->surface && u->surface->texture)
+        RetireTarget(*u->surface);
+    }
+  }
+  if (&surface == g_screen_source)
+    g_screen_source = nullptr;
+  if (&surface == g_frame_resolve_source)
+    g_frame_resolve_source = nullptr;
   if (surface.depth && surface.handed)
     DepthHandOverBeforeRetireLocked(&surface);  // banjo-nx (2026-10-19, banjo_deko3d_depth_handover)
   FreeDepthViews(surface.handover_views);
@@ -526,6 +565,27 @@ void LatchResolutionScaleLocked() {
     scale = RenderScale{kDynCodes[level]};
     g_dyn.latched_level.store(level, std::memory_order_relaxed);
   }
+  // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native): the frame's redirect to the UI target ends with it; the
+  // frames without a composite are counted; the surface the frame resolved to the front buffer is the next one's.
+  for (UiTarget *u : {&g_ui, &g_ui_depth}) {
+    if (u->redirect) {
+      u->redirect = false;
+      ++g_surface_epoch;
+    }
+  }
+  g_frames_without_composite = g_composite_seen ? 0 : std::min(g_frames_without_composite + 1, kMenuFrames);
+  g_composite_seen = false;
+  g_screen_source = g_frame_resolve_source;
+  g_screen_source_generation = g_frame_resolve_generation;
+  g_frame_resolve_source = nullptr;
+  {
+    const bool ui_native = IsDeko3D() && REXCVAR_GET(ffns_ui_native) && !FsrWanted() && scale != RenderScale{};
+    if (ui_native != g_ui_native_frame) {
+      g_ui_native_frame = ui_native;
+      ++g_surface_epoch;
+      RGPU_INFO("Text, HUD and menus at {} (ffns_ui_native)", ui_native ? "the display's 1280x720" : "the render height");
+    }
+  }
   if (!g_resolution_latched || scale != g_resolution_scale) {
     RGPU_INFO("Render resolution {}x{} ({:.3g}x)", scale.Size(GuestScreenWidth()), scale.Size(720),
               scale.Factor());
@@ -590,6 +650,17 @@ void ColorAliasesLocked(const HostSurface *surface, std::vector<HostSurface *> &
 
 HostSurface *GetHostSurfaceSlow(u32 surface_va, const d3d::SurfaceDesc *desc);
 
+namespace {
+// The UI target in place of its scene, with the words of the surface bound now (as the lookup gives the scene).
+HostSurface *UiAnswer(UiTarget &u, const HostSurface *scene) {
+  HostSurface *ui = u.surface.get();
+  ui->size_word = scene->size_word;
+  ui->info_word = scene->info_word;
+  ui->format_word = scene->format_word;
+  return ui;
+}
+}  // namespace
+
 HostSurface *GetHostSurfaceLocked(u32 surface_va) {
   if (!surface_va)
     return nullptr;
@@ -608,6 +679,11 @@ HostSurface *GetHostSurfaceLocked(u32 surface_va) {
     m.surface->size_word = desc->Size;
     m.surface->info_word = desc->SurfaceInfo;
     m.surface->format_word = desc->Format;
+    // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native): the composite's target after the composite: its UI target.
+    if (g_ui.redirect && m.surface == g_ui.scene)
+      return UiAnswer(g_ui, m.surface);
+    if (g_ui_depth.redirect && m.surface == g_ui_depth.scene)
+      return UiAnswer(g_ui_depth, m.surface);
     return m.surface;
   }
   HostSurface *result = GetHostSurfaceSlow(surface_va, desc);
@@ -619,7 +695,120 @@ HostSurface *GetHostSurfaceLocked(u32 surface_va) {
     m.epoch = g_surface_epoch;
     m.surface = result;
   }
+  if (g_ui.redirect && result && result == g_ui.scene)
+    return UiAnswer(g_ui, result);  // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native)
+  if (g_ui_depth.redirect && result && result == g_ui_depth.scene)
+    return UiAnswer(g_ui_depth, result);
   return result;
+}
+
+// FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native; renut-nx's): see surfaces.h.
+RenderScale UiScale() { return RenderScale{}; }
+
+bool UiNativeWanted() { return g_ui_native_frame; }
+
+bool UiRedirectedLocked() { return g_ui.redirect; }
+
+void NoteCompositeLocked() { g_composite_seen = true; }
+
+void RedirectToUiSurfaceLocked() {
+  if (g_ui.scene && g_ui.surface && g_ui.surface->texture && !g_ui.redirect) {
+    g_ui.redirect = true;
+    ++g_surface_epoch;
+  }
+}
+
+void RedirectDepthToUiLocked() {
+  if (g_ui_depth.scene && g_ui_depth.surface && g_ui_depth.surface->texture && !g_ui_depth.redirect) {
+    g_ui_depth.redirect = true;
+    ++g_surface_epoch;
+  }
+}
+
+void NoteScreenResolveLocked(HostSurface *source) {
+  if (!source || source->depth)
+    return;
+  if (g_ui.surface && source == g_ui.surface.get())
+    source = g_ui.scene;  // the UI target stands for its scene
+  if (!source || source->width < GuestScreenWidth() || source->height < 720 ||
+      source->samples != plume::RenderSampleCount::COUNT_1)
+    return;
+  g_frame_resolve_source = source;
+  g_frame_resolve_generation = source->generation;
+}
+
+bool UiMenuFrameWantedLocked(const HostSurface *color) {
+  return g_ui_native_frame && !g_ui.redirect && g_frames_without_composite >= kMenuFrames && color &&
+         color == g_screen_source && color->generation == g_screen_source_generation && !color->depth &&
+         color->texture && color->samples == plume::RenderSampleCount::COUNT_1 && color->scale != UiScale();
+}
+
+namespace {
+
+// The UI target 'u' for 'scene' (colour or depth): kept while it fits, made again otherwise.
+HostSurface *MakeUiTarget(UiTarget &u, HostSurface *scene) {
+  if (!scene || !scene->texture)
+    return nullptr;
+  HostSurface *ui = u.surface.get();
+  if (ui && ui->texture && u.scene == scene && u.scene_generation == scene->generation &&
+      ui->scale == UiScale() && ui->width == scene->width && ui->height == scene->height &&
+      ui->format == scene->format && ui->samples == scene->samples) {
+    ui->size_word = scene->size_word;
+    ui->info_word = scene->info_word;
+    ui->format_word = scene->format_word;
+    return ui;
+  }
+  if (!ui) {
+    u.surface = std::make_unique<HostSurface>();
+    ui = u.surface.get();
+  } else if (ui->texture) {
+    RetireTarget(*ui);
+  }
+  ui->guest_va = scene->guest_va;
+  ui->size_word = scene->size_word;
+  ui->info_word = scene->info_word;
+  ui->format_word = scene->format_word;
+  ui->width = scene->width;
+  ui->height = scene->height;
+  ui->scale = UiScale();
+  ui->depth = scene->depth;
+  ui->format = scene->format;
+  ui->samples = scene->samples;
+  ui->writes = 0;
+  std::fill(std::begin(ui->profile_labels), std::end(ui->profile_labels), UINT32_MAX);
+  const uint32_t host_width = ui->scale.Size(ui->width), host_height = ui->scale.Size(ui->height);
+  plume::RenderDevice *device = Video::Device();
+  const plume::RenderMultisampling multisampling(ui->samples);
+  ui->texture = device->createTexture(
+      ui->depth ? plume::RenderTextureDesc::DepthTarget(host_width, host_height, ui->format, multisampling)
+                : plume::RenderTextureDesc::ColorTarget(host_width, host_height, ui->format, multisampling));
+  ui->layout = plume::RenderTextureLayout::UNKNOWN;
+  ui->generation = g_next_generation++;
+  ++g_surface_epoch;
+  if (!TextureCreated(ui->texture.get())) {
+    ui->texture.reset();
+    u.scene = nullptr;
+    if (!ReportDeviceLost(device))
+      RGPU_ERROR("UI {} target for {:08X}: {}x{} creation failed", ui->depth ? "depth" : "colour", scene->guest_va,
+                 host_width, host_height);
+    return nullptr;
+  }
+  ui->texture->setName(ui->depth ? "renut UI depth surface" : "renut UI surface");
+  u.scene = scene;
+  u.scene_generation = scene->generation;
+  RGPU_INFO("UI {} target for {:08X}: {}x{} (the 3D image {}x{})", ui->depth ? "depth" : "colour", scene->guest_va,
+            host_width, host_height, scene->scale.Size(scene->width), scene->scale.Size(scene->height));
+  return ui;
+}
+
+}  // namespace
+
+HostSurface *UiSurfaceLocked(HostSurface *scene) {
+  return scene && !scene->depth ? MakeUiTarget(g_ui, scene) : nullptr;
+}
+
+HostSurface *UiDepthSurfaceLocked(HostSurface *scene_depth) {
+  return scene_depth && scene_depth->depth ? MakeUiTarget(g_ui_depth, scene_depth) : nullptr;
 }
 
 HostSurface *GetHostSurfaceSlow(u32 surface_va, const d3d::SurfaceDesc *desc) {
@@ -716,6 +905,9 @@ HostSurface *SurfaceByGenerationLocked(uint64_t generation) {
   for (const auto &[key, surface] : g_targets)
     if (surface && surface->texture && surface->generation == generation)
       return surface.get();
+  for (const UiTarget *u : {&g_ui, &g_ui_depth})  // ffns_ui_native: the UI targets are no view's
+    if (u->surface && u->surface->texture && u->surface->generation == generation)
+      return u->surface.get();
   return nullptr;
 }
 
@@ -729,6 +921,13 @@ void SurfaceMemoryLocked(size_t &targets, uint64_t &bytes) {
     const uint64_t texel = plume::RenderFormatSize(surface->format);
     bytes += uint64_t(surface->scale.Size(surface->width)) * surface->scale.Size(surface->height) *
              texel * surface->samples;
+  }
+  for (const UiTarget *u : {&g_ui, &g_ui_depth}) {  // ffns_ui_native
+    if (const HostSurface *ui = u->surface.get(); ui && ui->texture) {
+      ++targets;
+      bytes += uint64_t(ui->scale.Size(ui->width)) * ui->scale.Size(ui->height) *
+               plume::RenderFormatSize(ui->format) * ui->samples;
+    }
   }
 }
 

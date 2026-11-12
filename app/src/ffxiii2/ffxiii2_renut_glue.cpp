@@ -7,8 +7,10 @@
 #include <atomic>
 #include <chrono>
 #include <cstdio>
+#include <condition_variable>
 #include <cstring>
 #include <cstdint>
+#include <mutex>
 #include <string>
 #include <thread>
 
@@ -96,13 +98,52 @@ REXCVAR_DEFINE_BOOL(ffxiii2_renut_swap_interrupt, true, "FFXIII2",
 REXCVAR_DEFINE_BOOL(ffxiii2_renut_vblank_callbacks, true, "FFXIII2",
                     "Renut only: the vertical blank thread runs the InsertCallback callbacks the renderer has reached");
 
+// ffxiii2-nx (2026-11-12, ffns_late_flip): a late frame's flip at once. FF waits every frame for its Swap's flip (the
+// frame event, sub_8290D670, set from the vertical blank through D3D's sub_828576F8 and FF's sub_82887E18 once the
+// blank count reaches FF's target: the last flip's blank + 2, or the next blank when that one has passed). The blanks
+// came on a fixed 60 Hz grid, so a frame that missed its blank by a millisecond waited for the next one: 8.3 ms a late
+// frame on average (the console profile of 2026-11-11: the main thread 17 % of a 19 fps second in that wait), and a
+// scene just over 33.3 ms a frame fell to 20 fps. Now a Swap that comes 2 blank periods or more after the last flip
+// wakes the vertical blank thread, which gives the game a blank then: the frame flips at once and the next one starts.
+// The grid's own blanks go on as before, so frames in time still flip on it (30 fps at most: an early blank is only
+// given 33.3 ms or more after the last flip; after one the grid's next blank is at least half a period away). The
+// picture is the same; only when a late frame is shown changes (the game's own clock is the flips' time stamps).
+REXCVAR_DEFINE_BOOL(ffns_late_flip, true, "FFXIII2",
+                    "Renut only: a frame that ends after its vertical blank flips at once instead of at the 60 Hz "
+                    "grid's next blank (8.3 ms a late frame on average; no 30 -> 20 fps step). Off: the fixed grid");
+
 namespace ffxiii2 {
 namespace {
 constexpr uint32_t kInterruptHandler = 0x828510C8u;
 constexpr uint32_t kSwapInterrupt = 0x82857828u;
+constexpr uint64_t kBlankNs = 1000000000ull / 60;
 rex::system::object_ref<rex::system::XHostThread> g_vblank_thread;
 std::atomic<bool> g_vblank_running{false};
+std::mutex g_blank_mutex;
+std::condition_variable g_blank_cv;
+bool g_blank_early = false;                 // under g_blank_mutex: a late Swap asks for a blank now
+std::atomic<uint64_t> g_last_flip_ns{0};    // steady_clock: the blank that flipped the last frame
+std::atomic<uint32_t> g_early_blanks{0};
+std::atomic<uint32_t> g_blank_seen_swaps{0};  // the device's swap count the blank thread has given its interrupt for
+
+uint64_t SteadyNs() {
+  return uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                      std::chrono::steady_clock::now().time_since_epoch())
+                      .count());
+}
 }  // namespace
+
+// The Swap hook (d3d/hooks/device.cpp), after it has counted the swap.
+void NoteSwapForVblank() {
+  if (!g_vblank_running.load(std::memory_order_acquire) || !REXCVAR_GET(ffns_late_flip)) return;
+  const uint64_t flip = g_last_flip_ns.load(std::memory_order_acquire);
+  if (!flip || SteadyNs() < flip + 2 * kBlankNs) return;  // in time: the grid's blank flips it
+  {
+    std::lock_guard<std::mutex> lock(g_blank_mutex);
+    g_blank_early = true;
+  }
+  g_blank_cv.notify_one();
+}
 
 void StartRenutVblank() {
   if (!REXCVAR_GET(ffxiii2_renut_vblank) || g_vblank_running.exchange(true)) return;
@@ -118,10 +159,29 @@ void StartRenutVblank() {
         auto next = clock::now() + interval;
         bool logged = false;
         while (g_vblank_running.load(std::memory_order_acquire)) {
-          std::this_thread::sleep_until(next);
-          next += interval;
+          bool early = false;
+          {
+            std::unique_lock<std::mutex> lock(g_blank_mutex);
+            early = g_blank_cv.wait_until(lock, next, [] { return g_blank_early; });
+            g_blank_early = false;
+          }
+          if (!early) {
+            next += interval;
+          } else if (next - clock::now() < interval / 2) {
+            next += interval;  // the grid's blank right after an early one is left out
+          }
           const uint32_t device = renut::gpu::Video::GuestDevice();
           if (!device) continue;
+          if (early) {
+            // Only with a Swap the blanks have not seen yet (one that came while a blank was running is flipped).
+            static_assert(sizeof(uint32_t) == 4);
+            uint32_t swaps_now_be = 0;
+            if (auto* d = kernel->memory()->TranslateVirtual<uint8_t*>(device)) std::memcpy(&swaps_now_be, d + 16968, 4);
+            if (__builtin_bswap32(swaps_now_be) == g_blank_seen_swaps.load(std::memory_order_relaxed)) continue;
+            g_early_blanks.fetch_add(1, std::memory_order_relaxed);
+          }
+          uint32_t flips_before_be = 0;
+          if (auto* d = kernel->memory()->TranslateVirtual<uint8_t*>(device)) std::memcpy(&flips_before_be, d + 16976, 4);
           static uint32_t ticks = 0;
           if (++ticks % 600 == 0)
           {
@@ -131,9 +191,11 @@ void StartRenutVblank() {
               std::memcpy(&blanks_be, d + 16952, 4);
               std::memcpy(&flips_be, d + 16976, 4);
             }
-            REXLOG_INFO("[ffxiii2] vertical blanks {}, GPU register reads {}; device: swaps {}, blanks {}, flips {}",
+            REXLOG_INFO("[ffxiii2] vertical blanks {}, GPU register reads {}; device: swaps {}, blanks {}, flips {}; "
+                        "blanks given early for a late frame {} (ffns_late_flip)",
                         ticks, g_gpu_register_reads.load(std::memory_order_relaxed), __builtin_bswap32(swaps_be),
-                        __builtin_bswap32(blanks_be), __builtin_bswap32(flips_be));
+                        __builtin_bswap32(blanks_be), __builtin_bswap32(flips_be),
+                        g_early_blanks.load(std::memory_order_relaxed));
             uint32_t c[8];
             for (int i = 0; i < 8; ++i) c[i] = g_ffxiii2_diag[i].load(std::memory_order_relaxed);
             REXLOG_INFO("[ffxiii2] draw hooks {}, resolve hooks {}, draws {}, resolves {} (no source address {}, no "
@@ -164,6 +226,7 @@ void StartRenutVblank() {
             const uint32_t front = g_ffxiii2_last_front_buffer.load(std::memory_order_acquire);
             if (swaps != last_swaps && front) {
               last_swaps = swaps;
+              g_blank_seen_swaps.store(swaps, std::memory_order_relaxed);
               uint32_t fetch1_be = 0;
               if (auto* t = kernel->memory()->TranslateVirtual<uint8_t*>(front)) std::memcpy(&fetch1_be, t + 32, 4);
               const uint32_t word = (__builtin_bswap32(fetch1_be) & 0x1FFFF000u) | 0x200u;
@@ -181,6 +244,11 @@ void StartRenutVblank() {
           if (REXCVAR_GET(ffxiii2_renut_cp_interrupt)) {
             uint64_t cp_args[] = {1, device};
             kernel->function_dispatcher()->ExecuteInterrupt(thread->thread_state(), kInterruptHandler, cp_args, 2);
+          }
+          if (auto* d = kernel->memory()->TranslateVirtual<uint8_t*>(device)) {
+            uint32_t flips_after_be = 0;
+            std::memcpy(&flips_after_be, d + 16976, 4);
+            if (flips_after_be != flips_before_be) g_last_flip_ns.store(SteadyNs(), std::memory_order_release);
           }
         }
         return 0;

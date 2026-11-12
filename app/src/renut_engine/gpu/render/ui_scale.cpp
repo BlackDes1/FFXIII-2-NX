@@ -200,8 +200,19 @@ HostSurface *UiDepthAfterCompositeLocked(HostSurface *depth) {
   return ui;
 }
 
+namespace {
+bool ScaleToUiLocked(HostSurface *surface);
+}  // namespace
+
 bool UiScaleAfterCompositeLocked(HostSurface *surface) {
   NoteCompositeLocked();
+  return ScaleToUiLocked(surface);
+}
+
+bool UiScaleMenuFrameLocked(HostSurface *surface) { return ScaleToUiLocked(surface); }
+
+namespace {
+bool ScaleToUiLocked(HostSurface *surface) {
   VideoState &s = State();
   if (g_pass.failed || !surface || surface->depth || !surface->texture ||
       surface->samples != plume::RenderSampleCount::COUNT_1 || surface->scale == UiScale() || UiRedirectedLocked() ||
@@ -271,5 +282,6 @@ bool UiScaleAfterCompositeLocked(HostSurface *surface) {
   banjo::renut_gpu::CountUiUpscale(true);
   return true;
 }
+}  // namespace
 
 }  // namespace renut::gpu

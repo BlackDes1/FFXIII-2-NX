@@ -118,6 +118,33 @@ struct DynamicResolutionInfo {
 };
 DynamicResolutionInfo GetDynamicResolutionInfo();
 
+// FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native; renut-nx's "internal resolution", render/ui_scale.cpp): with the
+// 3D image at a lowered height (ffns_dynres_fixed_height) the text, HUD and menus are drawn at the display's 720 lines.
+// Right after FF's final composite (banjo_renut_smaa_after_ps) the composite's target is scaled into its UI target
+// (UiSurfaceLocked) and the rest of the frame's lookups of that target answer the UI target, so the HUD's draws, clears
+// and the resolve to the front buffer use it. A frame of screens without that composite (the boot's message boxes, the
+// title, 2D menus: kMenuFrames of them in a row) takes the UI target from its first draw into the surface the frames
+// before resolved to the front buffer (UiMenuFrameWantedLocked). The render scale itself never changes (level changes
+// broke the picture, 2026-11-09): every other target stays at the lowered height.
+RenderScale UiScale();
+bool UiNativeWanted();
+// The composite's target at the display's resolution: made (or made again) for 'scene', same format and samples, not
+// among the targets of the EDRAM views; nullptr when it cannot be made.
+HostSurface *UiSurfaceLocked(HostSurface *scene);
+// From now to the Swap, lookups of the target UiSurfaceLocked was last given answer its UI target.
+void RedirectToUiSurfaceLocked();
+// The same for the depth target bound with it (a draw after the composite that tests depth).
+HostSurface *UiDepthSurfaceLocked(HostSurface *scene_depth);
+void RedirectDepthToUiLocked();
+bool UiRedirectedLocked();
+// The frame's final composite was drawn.
+void NoteCompositeLocked();
+// A whole-screen colour resolve's source (the last one of a frame is the front buffer's).
+void NoteScreenResolveLocked(HostSurface *source);
+// Whether a draw or clear into 'color' starts this frame's UI target: a frame of 2D screens, 'color' the surface the
+// frames before resolved to the front buffer, and no redirect yet.
+bool UiMenuFrameWantedLocked(const HostSurface *color);
+
 // The host target for the D3DSurface at 'surface_va', created or rebuilt as
 // needed. nullptr for 0 or when the target cannot be created.
 HostSurface *GetHostSurfaceLocked(u32 surface_va);

@@ -1637,6 +1637,10 @@ REXCVAR_DEFINE_INT32(banjo_renut_smaa_quality, 1, "Banjo/Enhancements",
                      "banjo_renut_smaa's preset: 1 = SMAA's medium, 2 = high (diagonal and corner detection)");
 REXCVAR_DEFINE_DOUBLE(banjo_renut_smaa_threshold, 0.1, "Banjo/Enhancements",
                       "banjo_renut_smaa's luma edge threshold (0.15 low, 0.1 medium and high, 0.05 ultra)");
+REXCVAR_DEFINE_INT32(banjo_renut_upscale_filter, 0, "Banjo/Enhancements",
+                     "ffns_ui_native: how the 3D image is scaled to the display's resolution before the text and HUD "
+                     "are drawn over it: 0 bilinear (one sample a pixel), 1 bicubic (sharper, 4 samples)")
+    .range(0, 1);
 REXCVAR_DEFINE_STRING(banjo_renut_smaa_after_ps, "A2FBF0ABD9576D65", "Banjo/Enhancements",
                       "banjo_renut_smaa: pixel shaders (16-digit hex hashes, comma separated) whose draw is the frame's "
                       "final 3D image before the HUD");
@@ -1650,6 +1654,22 @@ bool SmaaOn() { return REXCVAR_GET(banjo_renut_smaa); }
 int SmaaQuality() { return REXCVAR_GET(banjo_renut_smaa_quality); }
 double SmaaThreshold() { return REXCVAR_GET(banjo_renut_smaa_threshold); }
 std::string SmaaAfterPsList() { return REXCVAR_GET(banjo_renut_smaa_after_ps); }
+int UpscaleFilter() { return REXCVAR_GET(banjo_renut_upscale_filter); }
+namespace {
+std::atomic<uint64_t> g_ffns_ui_upscales[2], g_ffns_ui_depth[2];
+}  // namespace
+void CountUiUpscale(bool scaled) {
+  g_ffns_ui_upscales[scaled ? 0 : 1].fetch_add(1, std::memory_order_relaxed);
+  const uint64_t n = g_ffns_ui_upscales[0].load(std::memory_order_relaxed) +
+                     g_ffns_ui_upscales[1].load(std::memory_order_relaxed);
+  if (n % 600 == 1)
+    REXLOG_INFO("[renut] text and HUD at 720p (ffns_ui_native, {}): {} frames scaled, {} already at the display's "
+                "resolution; UI depth targets filled {}, depth targets left out {}",
+                UpscaleFilter() ? "bicubic" : "bilinear", g_ffns_ui_upscales[0].load(std::memory_order_relaxed),
+                g_ffns_ui_upscales[1].load(std::memory_order_relaxed),
+                g_ffns_ui_depth[0].load(std::memory_order_relaxed), g_ffns_ui_depth[1].load(std::memory_order_relaxed));
+}
+void CountUiDepth(bool filled) { g_ffns_ui_depth[filled ? 0 : 1].fetch_add(1, std::memory_order_relaxed); }
 int32_t SmaaCompareSeconds() { return REXCVAR_GET(banjo_renut_diag_smaa_compare_s); }
 void CountSmaa() { g_ffns_smaa_runs.fetch_add(1, std::memory_order_relaxed); }
 }  // namespace banjo::renut_gpu

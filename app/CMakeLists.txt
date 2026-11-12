@@ -86,6 +86,7 @@ set(RENUT_SOURCES
     src/ffxiii2/ffxiii2_irq.cpp
     # ffxiii2-nx (2026-11-05): the backoff of the guest polling loops (tools/spin_polls.py).
     src/ffxiii2/ffxiii2_spin_poll.cpp
+    src/ffxiii2/ffxiii2_audio_native.cpp  # 2026-11-12, ffns_native_biquad
     # ffxiii2-nx (2026-11-06): src/ffxiii2/ffxiii2_audio_diag.cpp (ffxiii2_audio_diag, the hooks that found the missing
     # audio's cause: the sound timer, sdk/src/system/xtimer.cpp) is kept in the tree but no longer built; the user
     # confirmed the audio on the console (k196). Add it back here to trace the XAudio engine again.
