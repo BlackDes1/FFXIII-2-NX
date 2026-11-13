@@ -195,6 +195,8 @@ Settings that are not in the menu (e.g. button remapping, single Joy-Con held si
 **Performance** (console, handheld, New Bodhum field): about 25 fps at the stock CPU clock and about 29 fps at
 1428 MHz; the opening battle holds 30 fps at 1428 MHz. Details in [`docs/native/performance.md`](docs/native/performance.md)
 and [`docs/native/30fps-steps123-2026-11-10.md`](docs/native/30fps-steps123-2026-11-10.md).
+The full record of every performance change, its measured result and what was rejected is in
+[`docs/native/performance-playbook.md`](docs/native/performance-playbook.md).
 
 ## ⚠️ Overclocking: risks and disclaimer
 

@@ -1,5 +1,7 @@
 # Performance — targets, historical baseline, measurement protocol
 
+> **Start with [performance-playbook.md](performance-playbook.md)**: every performance change, its measured result, what was rejected and what is open, in one place.
+
 ## Target
 Nintendo Switch, handheld, ARM Cortex-A57 at 1020 MHz (GPU 460.8 MHz, EMC 1331.2 MHz), no overclock. Stable 30 fps
 (two-blank swap): every frame ≤ 33.33 ms. Pixel-identical rendering at the game's native 1280×720 (2×MSAA scene).
