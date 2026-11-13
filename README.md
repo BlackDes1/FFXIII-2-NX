@@ -131,6 +131,7 @@ At the end only the SD folder is left (about 9 GB with the game files, 150 MB wi
 | `-Out <folder>` | where the SD folder goes (default `SD\` in the repository) |
 | `-Jobs N` | compile jobs (default: the cores, at most half the RAM in GB) |
 | `-KeepTools`, `-KeepWork` | keep the downloaded tools / the build folders after the build |
+| `-NoShaderStore` | do not use the shader store. By default the translated shaders and the shader cache are kept in `%LOCALAPPDATA%\FFXIII-2-NX-Builder\shader_store` (about 0.6 GB, made from your game files, stays on your PC) and the next build with the same game files and shader tools copies them back in seconds, where the `shaders` and `cache` steps take 1-2.5 hours. `-From shaders` / `-From cache` translate again. Delete the folder to free the space. |
 | `-NoPgo` | build without the PGO profile (slower game) |
 | `-DevkitPro <folder>`, `-Tools <folder>`, `-Work <folder>` | an installed devkitPro / where the tools and the temporary files go |
 

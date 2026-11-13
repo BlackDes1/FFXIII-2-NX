@@ -49,6 +49,7 @@ param(
     [switch]$NoPgo,
     [switch]$KeepWork,
     [switch]$KeepTools,
+    [switch]$NoShaderStore,
     [switch]$FreshTools,
     [switch]$SkipHashCheck,
     [ValidateSet('', 'tools', 'extract', 'codegen', 'shaders', 'cache', 'switch', 'package', 'sdcard', 'cleanup')][string]$From = ''
@@ -474,6 +475,43 @@ if (-not (IsDone 'codegen')) {
 
 # ---- 4. shaders -----------------------------------------------------------------------------------------------------
 $sh = Join-Path $repo 'out\deko3d_shaders'
+# The shader store (2026-11-13: "translating the shaders takes for ever"): the translation and the shader cache depend
+# only on the game files (fixed: the EU disc + title update 6, checked above), the DLC, and the shader tools - not on
+# the port's own code. Their results are kept outside the build folders, under a key of those inputs, and the next
+# build with the same inputs copies them back (seconds) where it took 1-2.5 hours. -NoShaderStore turns it off.
+$storeRoot = if ($env:FFX_SHADER_STORE) { $env:FFX_SHADER_STORE } else { Join-Path $env:LOCALAPPDATA 'FFXIII-2-NX-Builder\shader_store' }
+$storeKey = ''
+if (-not $NoShaderStore -and -not $SkipHashCheck) {
+    try {
+        $parts = @($XexSha, $XexpSha)
+        if ($Dlc) {
+            $dl = if (Test-Path -LiteralPath $Dlc -PathType Container) { @(Get-ChildItem -LiteralPath $Dlc -File | Sort-Object Name) } else { @(Get-Item -LiteralPath $Dlc) }
+            foreach ($f in $dl) { $parts += "$($f.Name):$($f.Length)" }
+        }
+        $toolFiles = @('tools\switch_shaders.ps1', 'tools\deko3d_shaders.py', 'tools\deko3d_glsl_opt.py', 'tools\deko3d_shader_package.py',
+            'tools\renut_early_alpha.py', 'tools\renut_switch_shader_cache.py', 'tools\deko3d_variant_cache.py', 'tools\renut_shader_dump.py',
+            'tools\ffxiii2_scan_shaders.py', 'tools\gh\iso_tool.py', 'app\config\ffxiii2\embedded_shaders.txt',
+            'app\thirdparty\reblue-XenosRecomp\XenosRecomp\shader_common.h',
+            'tools\gh\bin\XenosRecomp.exe', 'tools\gh\bin\spirv-cross.exe', 'tools\gh\bin\uam.exe', 'tools\gh\bin\glslangValidator.exe')
+        foreach ($l in Get-ChildItem (Join-Path $repo 'app\config\ffxiii2\pipeline_lists') -Filter '*.bin' | Sort-Object Name) { $toolFiles += $l.FullName.Substring($repo.Length + 1) }
+        foreach ($t in $toolFiles) { $tp = Join-Path $repo $t; $parts += $(if (Test-Path -LiteralPath $tp) { "${t}:$(Sha $tp)" } else { "${t}:none" }) }
+        $sha = [System.Security.Cryptography.SHA256]::Create()
+        $storeKey = ([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($parts -join '|'))) -replace '-', '').ToLower().Substring(0, 24)
+    } catch { Warn "the shader store is not used ($($_.Exception.Message))"; $storeKey = '' }
+}
+$store = if ($storeKey) { Join-Path $storeRoot $storeKey } else { '' }
+$pkgDir = Join-Path $repo 'app\out\renut_switch'
+if ($store -and $From -notin @('shaders', 'cache') -and -not ((IsDone 'shaders') -and (IsDone 'cache')) -and (Test-Path (Join-Path $store 'complete.ok'))) {
+    try {
+        Say "shaders + cache: taken from the shader store ($store)"
+        New-Item -ItemType Directory -Force $pkgDir, $sh, $sd | Out-Null
+        Copy-Item -Force (Join-Path $store 'renut_switch\*') $pkgDir
+        Copy-Item -Force (Join-Path $store 'deko3d_glsl_full.bin') (Join-Path $sd 'deko3d_glsl.bin')
+        Copy-Item -Force (Join-Path $store 'deko3d_shaders.bin') (Join-Path $sd 'deko3d_shaders.bin')
+        foreach ($f in @('deko3d_glsl_switch.cpp', 'shader_cache_switch.cpp')) { if (-not (Test-Path (Join-Path $pkgDir $f))) { throw "$f is missing in the store" } }
+        Done 'shaders'; Done 'cache'
+    } catch { Warn "the shader store could not be used ($($_.Exception.Message)): translating again" }
+}
 if (-not (IsDone 'shaders')) {
     NeedFree 6 'the shader translation'
     $dump = Join-Path $repo 'out\renut_shader_dump'
@@ -518,6 +556,14 @@ if (-not (IsDone 'shaders')) {
         if (-not (Test-Path (Join-Path $repo $f))) { Fail "the shader step did not make $f ($logDir\shaders.log)" }
     }
     Copy-Item -Force (Join-Path $sh 'deko3d_glsl_full.bin') (Join-Path $sd 'deko3d_glsl.bin')
+    if ($store) {
+        try {
+            Remove-Item -LiteralPath (Join-Path $store 'complete.ok') -Force -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Force (Join-Path $store 'renut_switch') | Out-Null
+            Get-ChildItem -LiteralPath $pkgDir -File | Copy-Item -Destination (Join-Path $store 'renut_switch') -Force
+            Copy-Item -Force (Join-Path $sh 'deko3d_glsl_full.bin') (Join-Path $store 'deko3d_glsl_full.bin')
+        } catch { Warn "the shader store was not written ($($_.Exception.Message))" }
+    }
     # What the next steps no longer need.
     foreach ($d in @('out\deko3d_input', 'out\shader_scan', 'out\deko3d_shaders\early_alpha_hlsl', 'out\deko3d_shaders\spirv', 'out\deko3d_shaders\glsl')) { Remove-Made (Join-Path $repo $d) }
     Done 'shaders'
@@ -533,6 +579,13 @@ if (-not (IsDone 'cache')) {
     Py 'the shader cache' 'cache.log' $a
     if (-not (Test-Path (Join-Path $sh 'deko3d_shaders.bin'))) { Fail "the shader cache was not made ($logDir\cache.log)" }
     Copy-Item -Force (Join-Path $sh 'deko3d_shaders.bin') (Join-Path $sd 'deko3d_shaders.bin')
+    if ($store -and (Test-Path (Join-Path $store 'renut_switch\shader_cache_switch.cpp'))) {
+        try {
+            Copy-Item -Force (Join-Path $sh 'deko3d_shaders.bin') (Join-Path $store 'deko3d_shaders.bin')
+            Set-Content -Path (Join-Path $store 'complete.ok') -Value (Get-Date -Format s)
+            Note "shader store: kept for the next build ($store)"
+        } catch { Warn "the shader store was not written ($($_.Exception.Message))" }
+    }
     Remove-Made $sh
     Done 'cache'
 }
