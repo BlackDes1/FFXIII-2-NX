@@ -66,3 +66,7 @@ Every optimisation gets a row here: hypothesis · target · test · before · af
 | P10-OC | CPU clock toggle ffns_cpu_mhz (clkrst pin thread, no sys-clk; menu System > CPU clock) | user option | S1b, 120 s, windows 4-10 | 1020: ~19.7 fps | 1428 (non-PGO p10c): ~25.5 fps (+30 %) | pictures right (vis8) | **option**, off by default |
 | P10-FPCR | FFNS_FPCR_FIXED + no-trapping-math (NOT exact; msr fpcr 18,352 -> 35 sites) | measurable gain | 2 + 3 runs S1b | base 20.59/19.29/20.62 | fixed 20.45/20.04 | field + battle right | **rejected** (option OFF) |
 | P11-PGO | PGO (console training: field + opening battle, at 1428) + LTO | measurable gain | ABBA at 1428 + one 1020 run | 1428: ~25.5; 1020: ~19.7 | 1428: ~28.9 (battle 30.0); 1020: 25.5 | field + battle right (vis9, bt08) | **build p11** |
+
+## 2026-11-12 / 13
+Late flip, native biquad, clocks up to CPU 1785 / GPU 537 MHz and the measurements of these days:
+[session-2026-11-12-13.md](session-2026-11-12-13.md). The heavy views are main-thread bound (91-93 % busy).

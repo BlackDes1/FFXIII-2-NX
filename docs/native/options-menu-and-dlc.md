@@ -72,3 +72,8 @@ off 27.9, sharpen 29.2, FSR 1 34.1; fps unchanged (the main thread is the limit)
 ## Saved builds
 - 2026-11-10: "Single Joy-Con sideways" taken out of the menu (the key `input_joycon_sideways` still works in
   `ffxiii2.toml`, the menu just no longer shows it). Build saved in `out\builds\2026-11-10_p8d_menu_dlc\`.
+
+## 2026-11-12 / 13
+New lines: "Text and HUD" (`ffns_ui_native`), "GPU clock" (`ffns_gpu_mhz` 0 / 537), CPU clock choices 1581 and 1785 MHz;
+the FPS counter line is removed. Saved choices now go in front of the first table of `ffxiii2.toml` (they were ignored
+after a restart). See [session-2026-11-12-13.md](session-2026-11-12-13.md).

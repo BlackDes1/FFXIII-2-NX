@@ -186,3 +186,8 @@ FFXIII-2-Native-Switch/
   profiling/, logs/          measurement outputs
   build/                     all build outputs (never inside Works\)
 ```
+
+## 2026-11-12 / 13
+UI targets (render/surfaces.cpp: `g_ui`, `g_ui_depth`, `g_ui_menu`; render/ui_scale.cpp), the blank thread's early
+blank (ffxiii2_renut_glue.cpp `NoteSwapForVblank`), shared clock sessions (sdk/src/ui/switch_apm.cpp):
+[session-2026-11-12-13.md](session-2026-11-12-13.md).

@@ -44,3 +44,7 @@ Battle at 720p: 31.5 of 36.4 ms in 1280×720 targets (draws 26.4, colour resolve
 resolves 1.0 + 1.6 shadows). Heavy passes: PS 0938773DF7F7FA28 4 ms (opaque, cube map), FCF76CCFFD55FFDE smoke
 2-6.5 ms (100-300 draws), 870B06B2245CD010 2.2 ms (full screen), opening scene AEAFDCD8198EDD3F 14 ms (32-tap radial
 blur of RGBA16F).
+
+## 2026-11-12 / 13
+Text and HUD at 1280x720 (`ffns_ui_native`, three UI targets), field shadows (`banjo_deko3d_depth_handover` off):
+[session-2026-11-12-13.md](session-2026-11-12-13.md).
