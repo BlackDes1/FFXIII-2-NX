@@ -1,5 +1,7 @@
 # Rendering — invariants, known defects, pixel-identity procedure
 
+> **Start with [rendering-playbook.md](rendering-playbook.md)**: how the renderer was brought up, every defect with its cause class and fix, the diagnostics, and a checklist for the next game.
+
 ## Invariants (carried over from the old project's audit; they are the contract for the native renderer)
 1. **Bind-time latch:** a draw uses the surface header contents as they were at SetRenderTarget /
    SetDepthStencilSurface, never a later read (old fixes D-007 k211, D-008 k229, D-010 k240/k241 `stable_all`).

@@ -197,6 +197,8 @@ Settings that are not in the menu (e.g. button remapping, single Joy-Con held si
 and [`docs/native/30fps-steps123-2026-11-10.md`](docs/native/30fps-steps123-2026-11-10.md).
 The full record of every performance change, its measured result and what was rejected is in
 [`docs/native/performance-playbook.md`](docs/native/performance-playbook.md).
+How the renderer was made to work (defect classes, fixes, diagnostics, checklist for another game):
+[`docs/native/rendering-playbook.md`](docs/native/rendering-playbook.md).
 
 ## ⚠️ Overclocking: risks and disclaimer
 

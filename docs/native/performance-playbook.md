@@ -197,4 +197,4 @@ bodies; fused vmaddfp; draw-distance cuts in S1b; conclusions from Ryujinx; conc
 [performance.md](performance.md) (targets, protocol) · [profile_s1b_2026-11-09.md](profile_s1b_2026-11-09.md) ·
 [30fps-steps123-2026-11-10.md](30fps-steps123-2026-11-10.md) · [refs-20261110-review.md](refs-20261110-review.md) ·
 [switchwaker-review.md](switchwaker-review.md) · [session-2026-11-12-13.md](session-2026-11-12-13.md) ·
-[rendering.md](rendering.md) · [architecture.md](architecture.md) · [progress-log.md](progress-log.md)
+[rendering-playbook.md](rendering-playbook.md) · [rendering.md](rendering.md) · [architecture.md](architecture.md) · [progress-log.md](progress-log.md)
