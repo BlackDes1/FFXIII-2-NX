@@ -79,6 +79,9 @@ static_assert(REX_PLATFORM_LINUX || REX_PLATFORM_MAC, "This file is POSIX-only")
 #define REX_HAS_SIGEV_THREAD_ID 0
 #endif
 
+REXCVAR_DEFINE_BOOL(switch_yield_backoff, false, "Threading",
+                    "Switch: a thread polling with yields (more than 16 in a row, each within 20 us) sleeps 100 us a "
+                    "call instead of spinning (MaybeYield)");
 REXCVAR_DEFINE_BOOL(thread_wait_blocking, true, "Threading",
                     "Event-driven waits: WaitMultiple parks on a wake point instead of polling every 1 ms, "
                     "and alertable waits are woken by the queued APC hint instead of a 1 ms poll slice. "
@@ -241,6 +244,23 @@ thread_local bool g_yield_to_any = false;
 }
 void SetYieldToAnyThread(bool on) { g_yield_to_any = on; }
 void MaybeYield() {
+  // 2026-11-13 (renut_nx_ultimate_base port 56, switch_yield_backoff; off by default here until measured): a thread
+  // that yields again within 20 us more than 16 times in a row is polling (FF's job wait loop sub_82886578: 66,000
+  // yields a second on the main thread): from then on it sleeps 100 us a call, so the threads it waits for get its core.
+  if (REXCVAR_GET(switch_yield_backoff)) {
+    thread_local std::chrono::steady_clock::time_point previous{};
+    thread_local uint32_t in_a_row = 0;
+    const auto now = std::chrono::steady_clock::now();
+    in_a_row = now - previous < std::chrono::microseconds(20) ? in_a_row + 1 : 0;
+    if (in_a_row > 16) {
+      const timespec rest = {0, 100000};
+      nanosleep(&rest, nullptr);
+      previous = std::chrono::steady_clock::now() - std::chrono::microseconds(1);
+      __sync_synchronize();
+      return;
+    }
+    previous = now;
+  }
   if (g_yield_to_any) {
     svcSleepThread(-2);
   } else {
