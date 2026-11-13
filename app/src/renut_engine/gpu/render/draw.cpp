@@ -1293,10 +1293,19 @@ void DropSmallerDepth(const GuestDevice &device, Targets &t, uint64_t vs_hash, u
 // binds its own pipeline, sets and buffers.
 void SyncBound(VideoState &s);
 void StartUiMenuFrame(const GuestDevice &device) {
-  if (!UiMenuFramePendingLocked())
+  const bool layer = UiMenuLayerPendingLocked();
+  if (!layer && !UiMenuFramePendingLocked())
     return;
   const u32 va = device.U32(d3d::kDeviceOffsetRenderTargets);
   HostSurface *color = va ? GetHostSurfaceLocked(va) : nullptr;
+  if (layer && color && !device.U32(d3d::kDeviceOffsetDepthStencil) && UiMenuLayerLocked(color)) {
+    SyncBound(State());
+    g_bound.framebuffer = nullptr;
+    g_bound.pipeline = nullptr;
+    g_bound.layout = false;
+    g_bound.viewport_set = false;
+    return;
+  }
   if (!color || !UiMenuFrameWantedLocked(color) || !Video::EnsureCommandListLocked())
     return;
   SyncBound(State());

@@ -73,6 +73,8 @@ struct UiTarget {
   bool redirect = false;
 };
 UiTarget g_ui, g_ui_depth;
+// 2026-11-13: the 2D screens' own layer (see UiMenuLayerLocked).
+UiTarget g_ui_menu;
 bool g_composite_seen = false;
 uint32_t g_frames_without_composite = kMenuFrames;
 bool g_ui_native_frame = false;  // UiNativeWanted, latched at the Swap
@@ -186,7 +188,7 @@ void FreeDepthViews(std::vector<DepthImage::View> &views) {
 
 void RetireTarget(HostSurface &surface) {
   // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native): the composite's target goes, and its UI target with it.
-  for (UiTarget *u : {&g_ui, &g_ui_depth}) {
+  for (UiTarget *u : {&g_ui, &g_ui_depth, &g_ui_menu}) {
     if (&surface == u->scene) {
       u->scene = nullptr;
       u->redirect = false;
@@ -567,7 +569,7 @@ void LatchResolutionScaleLocked() {
   }
   // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native): the frame's redirect to the UI target ends with it; the
   // frames without a composite are counted; the surface the frame resolved to the front buffer is the next one's.
-  for (UiTarget *u : {&g_ui, &g_ui_depth}) {
+  for (UiTarget *u : {&g_ui, &g_ui_depth, &g_ui_menu}) {
     if (u->redirect) {
       u->redirect = false;
       ++g_surface_epoch;
@@ -684,6 +686,8 @@ HostSurface *GetHostSurfaceLocked(u32 surface_va) {
       return UiAnswer(g_ui, m.surface);
     if (g_ui_depth.redirect && m.surface == g_ui_depth.scene)
       return UiAnswer(g_ui_depth, m.surface);
+    if (g_ui_menu.redirect && m.surface == g_ui_menu.scene)
+      return UiAnswer(g_ui_menu, m.surface);
     return m.surface;
   }
   HostSurface *result = GetHostSurfaceSlow(surface_va, desc);
@@ -697,6 +701,8 @@ HostSurface *GetHostSurfaceLocked(u32 surface_va) {
   }
   if (g_ui.redirect && result && result == g_ui.scene)
     return UiAnswer(g_ui, result);  // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native)
+  if (g_ui_menu.redirect && result && result == g_ui_menu.scene)
+    return UiAnswer(g_ui_menu, result);
   if (g_ui_depth.redirect && result && result == g_ui_depth.scene)
     return UiAnswer(g_ui_depth, result);
   return result;
@@ -730,6 +736,8 @@ void NoteScreenResolveLocked(HostSurface *source) {
     return;
   if (g_ui.surface && source == g_ui.surface.get())
     source = g_ui.scene;  // the UI target stands for its scene
+  if (g_ui_menu.surface && source == g_ui_menu.surface.get())
+    source = g_ui_menu.scene;
   if (!source || source->width < GuestScreenWidth() || source->height < 720 ||
       source->samples != plume::RenderSampleCount::COUNT_1)
     return;
@@ -809,6 +817,28 @@ HostSurface *MakeUiTarget(UiTarget &u, HostSurface *scene) {
 
 HostSurface *UiSurfaceLocked(HostSurface *scene) {
   return scene && !scene->depth ? MakeUiTarget(g_ui, scene) : nullptr;
+}
+
+// 2026-11-13 (the user: "the text is still hard to read", boot box / title / save screens; rtlog of a load screen
+// frame: 23 draws into 300A5000, resolved to a texture, ONE draw of that texture into 30105000, which goes to the front
+// buffer). Only 30105000 (the surface resolved to the front buffer) had the UI target, so the text itself was drawn at
+// the 3D scale and scaled twice. Now, in a frame of a 2D screen, the first other whole-screen colour surface drawn or
+// cleared with no depth buffer bound is drawn at the display's resolution too, to the Swap. Not copied into: these
+// screens clear it first.
+bool UiMenuLayerPendingLocked() {
+  return g_ui_native_frame && !g_ui_menu.redirect && !g_ui.redirect && g_frames_without_composite >= kMenuFrames;
+}
+
+bool UiMenuLayerLocked(HostSurface *color) {
+  if (!UiMenuLayerPendingLocked() || !color || color->depth || !color->texture || color == g_screen_source ||
+      color->samples != plume::RenderSampleCount::COUNT_1 || color->scale == UiScale() ||
+      color->width < GuestScreenWidth() || color->height < 720)
+    return false;
+  if (!MakeUiTarget(g_ui_menu, color))
+    return false;
+  g_ui_menu.redirect = true;
+  ++g_surface_epoch;
+  return true;
 }
 
 HostSurface *UiDepthSurfaceLocked(HostSurface *scene_depth) {
@@ -909,7 +939,7 @@ HostSurface *SurfaceByGenerationLocked(uint64_t generation) {
   for (const auto &[key, surface] : g_targets)
     if (surface && surface->texture && surface->generation == generation)
       return surface.get();
-  for (const UiTarget *u : {&g_ui, &g_ui_depth})  // ffns_ui_native: the UI targets are no view's
+  for (const UiTarget *u : {&g_ui, &g_ui_depth, &g_ui_menu})  // ffns_ui_native: the UI targets are no view's
     if (u->surface && u->surface->texture && u->surface->generation == generation)
       return u->surface.get();
   return nullptr;
@@ -926,7 +956,7 @@ void SurfaceMemoryLocked(size_t &targets, uint64_t &bytes) {
     bytes += uint64_t(surface->scale.Size(surface->width)) * surface->scale.Size(surface->height) *
              texel * surface->samples;
   }
-  for (const UiTarget *u : {&g_ui, &g_ui_depth}) {  // ffns_ui_native
+  for (const UiTarget *u : {&g_ui, &g_ui_depth, &g_ui_menu}) {  // ffns_ui_native
     if (const HostSurface *ui = u->surface.get(); ui && ui->texture) {
       ++targets;
       bytes += uint64_t(ui->scale.Size(ui->width)) * ui->scale.Size(ui->height) *

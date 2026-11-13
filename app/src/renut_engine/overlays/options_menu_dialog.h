@@ -195,7 +195,8 @@ class OptionsMenuDialog : public rex::ui::ImGuiDialog {
         "The console's own clock comes back when the game closes.",
         false,
         {Choice{"1020 MHz (stock)", {{"ffns_cpu_mhz", "0"}}}, Choice{"1224 MHz", {{"ffns_cpu_mhz", "1224"}}},
-         Choice{"1428 MHz", {{"ffns_cpu_mhz", "1428"}}}, Choice{"1581 MHz", {{"ffns_cpu_mhz", "1581"}}}});
+         Choice{"1428 MHz", {{"ffns_cpu_mhz", "1428"}}}, Choice{"1581 MHz", {{"ffns_cpu_mhz", "1581"}}},
+         Choice{"1785 MHz", {{"ffns_cpu_mhz", "1785"}}}});
     add("System", "GPU clock",
         "Overclock: the game raises the GPU clock itself (no sys-clk needed). Fewer frame drops in heavy scenes, but "
         "more battery use and heat. The console's own clock comes back when the game closes.",

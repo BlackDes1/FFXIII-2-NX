@@ -44,7 +44,7 @@ void RexSwitchApmApply(void);
 void RexSwitchApmWatch(void);
 
 /* FFXIII-2-Native-Switch (2026-11-10, ffns_cpu_mhz): the CPU clock through clkrst, no sysmodule. Set the wanted MHz
- * (0 = the console's own; clamped to 1020..1581), the one-second tick applies and re-applies it, Restore at exit. */
+ * (0 = the console's own; clamped to 1020..1785), the one-second tick applies and re-applies it, Restore at exit. */
 void RexSwitchApmSetCpuMhz(int mhz);
 /* 2026-11-12, ffns_gpu_mhz: the GPU clock the same way: 537 = 537.6 MHz, 0 = the console's own. */
 void RexSwitchApmSetGpuMhz(int mhz);

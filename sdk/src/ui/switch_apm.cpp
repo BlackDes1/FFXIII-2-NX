@@ -376,7 +376,7 @@ extern "C" void RexSwitchApmWatch(void) {
  * at every next second, and 1428 then gave +12 % instead of the ~40 % the clock is worth. So a small thread of its own
  * (the console's core 3, priority 0x2C, asleep in between) reads the clock every 20 ms and sets it again when it moved,
  * and logs every 10 s how often it had to. 0 = the console's own clock: the one found before the first change is put
- * back (also by RexSwitchApmCpuRestore at exit). Clamped to 1020..1581 MHz (the user's limit, raised from 1428 on 2026-11-12).
+ * back (also by RexSwitchApmCpuRestore at exit). Clamped to 1020..1785 MHz (the user's limit: 1581 on 2026-11-12, 1785 on 2026-11-13).
  */
 namespace {
 std::atomic<int> g_cpu_want_mhz{0};
@@ -499,7 +499,7 @@ extern "C" void RexSwitchApmSetGpuMhz(int mhz) {
 
 extern "C" void RexSwitchApmSetCpuMhz(int mhz) {
   if (g_cpu_given_up.load(std::memory_order_relaxed)) return;
-  if (mhz > 0) mhz = mhz < 1020 ? 1020 : (mhz > 1581 ? 1581 : mhz);
+  if (mhz > 0) mhz = mhz < 1020 ? 1020 : (mhz > 1785 ? 1785 : mhz);
   g_cpu_want_mhz.store(mhz < 0 ? 0 : mhz, std::memory_order_relaxed);
 }
 

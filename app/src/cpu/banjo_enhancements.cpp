@@ -199,8 +199,8 @@ extern "C" unsigned char g_rex_atomic_legacy_barrier;  // sdk/src/core/atomic_po
 // name once a second by the SDK (switch_perf.cpp -> switch_apm.cpp, clkrst). The options menu's "CPU clock" line.
 REXCVAR_DEFINE_INT32(ffns_cpu_mhz, 0, "FFNS/Performance",
                      "Switch: the CPU clock in MHz, set by the game itself (clkrst, no sys-clk) and re-applied every "
-                     "second; 0 = the console's own (1020). 1224, 1428 or 1581 = an overclock (more power and heat). "
-                     "Clamped to 1020..1581; the console's own clock is put back at exit");
+                     "second; 0 = the console's own (1020). 1224, 1428, 1581 or 1785 = an overclock (more power and heat). "
+                     "Clamped to 1020..1785; the console's own clock is put back at exit");
 REXCVAR_DEFINE_INT32(ffns_gpu_mhz, 0, "FFNS/Performance",
                      "Switch: the GPU clock, set by the game itself (clkrst, no sys-clk): 0 = the console's own "
                      "(handheld 460.8 MHz), 537 = 537.6 MHz, an overclock (more power and heat). The console's own "

@@ -146,6 +146,9 @@ void NoteScreenResolveLocked(HostSurface *source);
 bool UiMenuFrameWantedLocked(const HostSurface *color);
 // The cheap part of it: such a frame, and its UI target not started yet.
 bool UiMenuFramePendingLocked();
+// 2026-11-13: the 2D screens' own layer at the display's resolution (surfaces.cpp).
+bool UiMenuLayerPendingLocked();
+bool UiMenuLayerLocked(HostSurface *color);
 
 // The host target for the D3DSurface at 'surface_va', created or rebuilt as
 // needed. nullptr for 0 or when the target cannot be created.

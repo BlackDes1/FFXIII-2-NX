@@ -177,7 +177,7 @@ Lines marked *(restart)* take effect the next time you start the game; all other
 | Line | Choices | What it does |
 |---|---|---|
 | **GPU clock** | **460 MHz** (stock, default), 537 MHz | Raises the Switch GPU clock while the game runs, set by the game itself (no sys-clk needed). The console's own clock comes back when the game closes. |
-| **CPU clock** | **1020 MHz** (stock, default), 1224 MHz, 1428 MHz, 1581 MHz | Raises the Switch CPU clock while the game runs, set by the game itself (no sys-clk needed). The console's own clock comes back when the game closes. GPU (460.8 MHz) and RAM (1331.2 MHz) stay at Nintendo's own handheld values. **1224 and 1428 MHz are an overclock — read the warning below.** |
+| **CPU clock** | **1020 MHz** (stock, default), 1224 MHz, 1428 MHz, 1581 MHz, 1785 MHz | Raises the Switch CPU clock while the game runs, set by the game itself (no sys-clk needed). The console's own clock comes back when the game closes. GPU (460.8 MHz) and RAM (1331.2 MHz) stay at Nintendo's own handheld values. **1224 and 1428 MHz are an overclock — read the warning below.** |
 
 ### Game and controls
 
@@ -198,7 +198,7 @@ and [`docs/native/30fps-steps123-2026-11-10.md`](docs/native/30fps-steps123-2026
 ## ⚠️ Overclocking: risks and disclaimer
 
 The **CPU clock** option runs the Switch's CPU above the clock Nintendo uses for games (1020 MHz). It is **off by
-default** and only active while you choose 1224, 1428 or 1581 MHz. Running a console out of specification can cause:
+default** and only active while you choose 1224, 1428, 1581 or 1785 MHz. Running a console out of specification can cause:
 
 - higher temperature and louder fan, faster battery drain, and shorter battery life over time;
 - instability (crashes, freezes) on some consoles, and in the worst case **damage to the console, the SD card or your
