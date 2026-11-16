@@ -2521,7 +2521,7 @@ LateAlgebraicOpt::visit(Instruction *i)
 // operations, 128 DomCSE keeps interpolations (equivalent, not replaced), 256 UniformJoins (no SSY / SYNC around a
 // branch on constant buffer values), 512 TexCluster (texture fetches early in their block), 1024 (2026-10-20) a uvec4 of
 // storage buffer 15 as one 128-bit load (nv50_ir_from_tgsi.cpp handleLOAD). 1471 by default (all but 64 and 512).
-static unsigned banjoFlags = 1471;
+static unsigned banjoFlags = 11711;  // FFXIII-2-NX (2026-11-16): 1471 + tw2de_nx's PressureSink (2048 + 8192)
 } // namespace nv50_ir
 extern "C" void nv50_ir_set_banjo_flags(unsigned flags) { nv50_ir::banjoFlags = flags; }
 extern "C" unsigned nv50_ir_get_banjo_flags() { return nv50_ir::banjoFlags; }
@@ -5067,6 +5067,203 @@ private:
       BANJO_LDG_AFTER(n)                        \
    }
 
+// ---- tw2de_nx (recomp-nx/tw2de_nx, GPL-3.0, 2026-10-21): PressureSink, ported to FFXIII-2-NX 2026-11-16 ----
+// banjo-nx (from tw2de_nx) (2026-10-21, banjo-nx (from tw2de_nx) flag 2048; 4096: texture fetches too): each value computed as late as its first use
+// allows, when that shortens what is live. uam keeps the GLSL's order, and the translated Xbox 360 code computes values
+// early (its compiler scheduled for its own 128-register file): a value computed long before its use holds a register
+// all the way. An instruction whose only uses are later in its block moves to just before the first of them, when none
+// of its sources ends there (every source is used again at or after the new place, or outside the block): its result
+// lives shorter and no source lives longer. Bottom-up, so a chain feeding one use moves down with it. Pure
+// reordering of pure operations: the same results. (A SPIR-V round trip of the same GLSL, whose output computes each
+// expression at its use, was measured at ~6 registers fewer on the shaders above 56; this is the part of it uam can do.)
+class PressureSink : public Pass
+{
+private:
+   virtual bool visit(BasicBlock *);
+   bool movable(const Instruction *) const;
+   static bool usesValue(const Instruction *, const Value *);
+   static bool crossLane(const Instruction *i)
+   {
+      return isTextureOp(i->op) || i->op == OP_DFDX || i->op == OP_DFDY || i->op == OP_QUADOP ||
+             i->op == OP_SHFL || i->op == OP_VOTE;
+   }
+public:
+   static bool isCrossLane(const Instruction *i) { return crossLane(i); }
+   bool textures = false;
+   bool passTextures = false;
+   bool allowNeutral = false;
+   unsigned moved = 0;
+   bool canMove(const Instruction *i) const { return movable(i); }
+   // what i may not be moved above (PressureHoist): for a load, what writes memory; for what reads other lanes,
+   // nothing (above a discard more lanes are alive); a texture fetch keeps its place among the others
+   bool stopsHoist(const Instruction *i, const Instruction *j) const
+   {
+      if (j->fixed || j->asFlow() || j->op == OP_CALL || j->op == OP_BAR || j->op == OP_MEMBAR)
+         return true;
+      if (isTextureOp(i->op) && (isTextureOp(j->op) || isSurfaceOp(j->op)))
+         return true;
+      return false;
+   }
+};
+
+bool
+PressureSink::usesValue(const Instruction *i, const Value *v)
+{
+   for (int s = 0; i->srcExists(s); ++s) {
+      if (i->getSrc(s) == v)
+         return true;
+      // an indirect source's address
+      const ValueRef &r = i->src(s);
+      if (r.isIndirect(0) && i->getIndirect(s, 0) == v)
+         return true;
+      if (r.isIndirect(1) && i->getIndirect(s, 1) == v)
+         return true;
+   }
+   for (int d = 0; i->defExists(d); ++d) {
+      // a predicate or carry the instruction also reads is a source; a def is never one
+   }
+   if (i->predSrc >= 0 && i->getSrc(i->predSrc) == v)
+      return true;
+   if (i->flagsSrc >= 0 && i->getSrc(i->flagsSrc) == v)
+      return true;
+   return false;
+}
+
+bool
+PressureSink::movable(const Instruction *i) const
+{
+   if (i->op == OP_PHI || i->op == OP_UNION || i->fixed || i->asFlow() || i->isPredicated() || i->join || i->exit)
+      return false;
+   if (!i->defExists(0) || i->defExists(1) || i->flagsDef >= 0)
+      return false;
+   if (i->getDef(0)->reg.file != FILE_GPR)
+      return false;
+   // SSA only (banjo-nx (from tw2de_nx) 2026-10-22): its result and its register sources defined once, so no other definition is
+   // passed on the way
+   if (i->getDef(0)->defs.size() != 1)
+      return false;
+   for (int s = 0; i->srcExists(s); ++s) {
+      const Value *v = i->getSrc(s);
+      if (v && v->reg.file == FILE_GPR && v->defs.size() > 1)
+         return false;
+      const ValueRef &r = i->src(s);
+      for (int d = 0; d < 2; ++d)
+         if (r.isIndirect(d) && i->getIndirect(s, d)->defs.size() > 1)
+            return false;
+   }
+   if (isTextureOp(i->op)) {
+      if (!textures)
+         return false;
+      // offsets that are registers are sources usesValue does not see; immediates are fine (banjo-nx (from tw2de_nx) 2026-10-22)
+      const TexInstruction *t = i->asTex();
+      for (int k = 0; k < t->tex.useOffsets; ++k)
+         for (int c = 0; c < 3; ++c)
+            if (t->offset[k][c].get() && !t->offset[k][c].get()->inFile(FILE_IMMEDIATE))
+               return false;
+      return true;
+   }
+   if (isSurfaceOp(i->op))
+      return false;
+   switch (i->op) {
+   case OP_DISCARD: case OP_STORE: case OP_ATOM: case OP_EXPORT: case OP_EMIT: case OP_RESTART:
+   case OP_BAR: case OP_MEMBAR: case OP_TEXBAR: case OP_CALL: case OP_QUADON: case OP_QUADPOP:
+   case OP_SUSTB: case OP_SUSTP: case OP_SUREDB: case OP_SUREDP: case OP_RDSV: case OP_WRSV:
+   case OP_SHFL: case OP_VOTE: case OP_PFETCH: case OP_AFETCH: case OP_SELP: case OP_CCTL:
+      return false;
+   case OP_LOAD:
+      // constant buffers and shader inputs only (nothing writes them while the shader runs)
+      return i->src(0).getFile() == FILE_MEMORY_CONST || i->src(0).getFile() == FILE_SHADER_INPUT;
+   default:
+      return true;
+   }
+}
+
+bool
+PressureSink::visit(BasicBlock *bb)
+{
+   Instruction *prev;
+   for (Instruction *i = bb->getExit(); i; i = prev) {
+      prev = i->prev;
+      if (!movable(i))
+         continue;
+      Value *def = i->getDef(0);
+      if (def->uses.empty())
+         continue;
+      // every use in this block (not a phi: a phi's use is on the edge into another block)
+      bool local = true;
+      for (ValueRef *u : def->uses) {
+         const Instruction *ui = u->getInsn();
+         if (!ui || ui->bb != bb || ui->op == OP_PHI) {
+            local = false;
+            break;
+         }
+      }
+      if (!local)
+         continue;
+      // the first use after it, and nothing on the way that the instruction may not pass
+      Instruction *first = nullptr;
+      for (Instruction *j = i->next; j; j = j->next) {
+         if (usesValue(j, def)) {
+            first = j;
+            break;
+         }
+         // a texture fetch keeps its place among the other texture and surface operations (passTextures: only the
+         // surface ones; fetches only read)
+         if (isTextureOp(i->op) && ((isTextureOp(j->op) && !passTextures) || isSurfaceOp(j->op)))
+            break;
+         // what reads other lanes (derivatives, quad operations, a fetch's implicit level of detail) stays before a
+         // discard: after it the discarded lanes' values are gone
+         if (j->op == OP_DISCARD && crossLane(i))
+            break;
+         if (j->op == OP_PHI)
+            break;
+      }
+      if (!first || first == i->next)
+         continue;
+      // what moving it costs: the registers of the sources that would end later (each is used again at or after the
+      // new place, or lives on past the block, or it ends here and lives longer), against its own result's
+      unsigned extended = 0;
+      for (int s = 0; i->srcExists(s); ++s) {
+         const Value *v = i->getSrc(s);
+         if (!v || v->reg.file != FILE_GPR || v->inFile(FILE_IMMEDIATE))
+            continue;
+         bool alive = false;
+         for (ValueRef *u : v->uses) {
+            const Instruction *ui = u->getInsn();
+            if (!ui || ui == i)
+               continue;
+            if (ui->bb != bb || ui->op == OP_PHI) {
+               alive = true;
+               break;
+            }
+         }
+         if (!alive) {
+            for (const Instruction *j = first; j; j = j->next) {
+               if (usesValue(j, v)) {
+                  alive = true;
+                  break;
+               }
+            }
+         }
+         if (!alive) {
+            bool counted = false;  // a source read twice counts once
+            for (int t = 0; t < s && !counted; ++t)
+               counted = i->getSrc(t) == v;
+            if (!counted)
+               extended += (v->reg.size + 3) / 4;
+         }
+      }
+      // fewer: a gain; as many (allowNeutral): no loss, and the sources' own producers can follow it down
+      const unsigned own = (def->reg.size + 3) / 4;
+      if (extended > own || (extended == own && !allowNeutral))
+         continue;
+      bb->remove(i);
+      bb->insertBefore(first, i);
+      ++moved;
+   }
+   return true;
+}
+
 bool
 Program::optimizeSSA(int level)
 {
@@ -5096,6 +5293,14 @@ Program::optimizeSSA(int level)
       RUN_PASS(2, UniformJoins, run);  // banjo-nx (2026-10-18)
    if (banjoFlags & 512)
       RUN_PASS(2, TexCluster, run);  // banjo-nx (2026-10-19)
+   if (banjoFlags & 2048) {  // tw2de_nx (2026-10-21; FFXIII-2-NX 2026-11-16): PressureSink, 8192 = equal-cost moves too
+      PressureSink sink;
+      sink.textures = (banjoFlags & 4096) != 0;
+      sink.allowNeutral = (banjoFlags & 8192) != 0;
+      sink.passTextures = (banjoFlags & 131072) != 0;
+      if (level >= 2 && !sink.run(this, false, true))
+         return false;
+   }
    // banjo-nx (2026-10-18): after MemoryOpt, which makes the two loads of a word the shifts read one.
    if (getTarget()->getChipset() >= NVISA_GM107_CHIPSET && (banjoFlags & 1)) {
       RUN_PASS(2, PermuteOpt, run);

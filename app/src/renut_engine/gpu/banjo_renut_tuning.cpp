@@ -184,6 +184,11 @@ REXCVAR_DEFINE_INT32(banjo_renut_fur_shells, 1, "Banjo/Enhancements",
                      "first always: 2 draws 11 of Banjo's 21 shells (thinner fur, the same length). The fur is about "
                      "18 ms of the heaviest frame's GPU at the stock clock")
     .range(1, 4);
+REXCVAR_DEFINE_BOOL(ffns_deko3d_uam_pressure, true, "FFNS/Graphics",
+                    "deko3d (2026-11-16, tw2de_nx's uam PressureSink, flags 2048 + 8192): uam computes each value as late "
+                    "as its first use allows when that does not lengthen what else is live; per pixel shader the "
+                    "version with fewer register steps is kept. Same results. Off: the shader cache no longer matches")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_BOOL(banjo_deko3d_uam_wide_rows, true, "Banjo/Enhancements",
                     "deko3d renderer (2026-10-20, GPU): uam reads each bone row of tools/deko3d_glsl_opt.py's aw4 view "
                     "(a uvec4 of storage buffer 15) with one 128-bit load instead of four 32-bit ones (banjo flag 1024): "
@@ -1010,6 +1015,10 @@ unsigned Deko3DUamFlags() {
     flags &= ~32u;
   if (!REXCVAR_GET(banjo_deko3d_uam_uniform_branches))
     flags &= ~256u;
+  // FFXIII-2-NX (2026-11-16, from tw2de_nx): PressureSink (2048, 8192), each pixel shader compiled with and without it
+  // (uam's CompileBest keeps the version with fewer register steps): more warps on the GPU at once, the same results
+  if (REXCVAR_GET(ffns_deko3d_uam_pressure))
+    flags |= 2048u | 8192u;
   return flags;
 }
 int Deko3DCompileCore() { return REXCVAR_GET(banjo_background_compile_core); }

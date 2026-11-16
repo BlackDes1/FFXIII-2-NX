@@ -688,7 +688,9 @@ std::unique_ptr<DekoCompiler> DekoCompiler::CompileBest(pipeline_stage stage, co
 	const unsigned flags = nv50_ir_get_banjo_flags();
 	if (stage != pipeline_stage_fragment || !(flags & 16))
 		return best;
-	static const unsigned drops[] = { 8, 32, 40, 512 };
+	// FFXIII-2-NX (2026-11-16): 10240 = tw2de_nx's PressureSink (2048 + 8192): kept only where it is no step worse
+	// 8192: the sink without equal-cost moves; 10240: without the sink; each also with 8 (the interpolation cache) off
+	static const unsigned drops[] = { 8, 32, 40, 512, 8192, 8200, 10240, 10248 };
 	for (unsigned drop : drops)
 	{
 		if ((flags & drop) != drop)

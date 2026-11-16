@@ -174,7 +174,7 @@ Found Find(Packages &all, uint64_t hash) {
 // uam 1.1.0 with SwitchWakerHD's 8 patches and banjo-nx's passes (bnx3, 2026-10-18: with the value numbering).
 // banjo-nx (2026-10-20): bnx4 with uam banjo flag 1024 (the 128-bit bone rows) in the default flags: a cache
 // compiled before is another compiler's.
-constexpr char kCacheTag[16] = "uam110-sw8-bnx4";
+constexpr char kCacheTag[16] = "uam110-sw8-bnx5";  // FFXIII-2-NX 2026-11-16: + PressureSink (tw2de_nx)
 
 constexpr uint32_t kDkshMagic = 0x48534B44u;  // "DKSH", the first word of every record's data
 
@@ -289,7 +289,7 @@ void LoadCache() {
   // banjo-nx (2026-10-18): the code uam makes with other flags (banjo_deko3d_uam_prmt, banjo_deko3d_uam_gvn off) has a
   // cache of its own.
   const unsigned flags = Deko3DUamFlags();
-  c.path = NextToExecutable(flags == 1471u ? std::string("deko3d_shaders.bin")
+  c.path = NextToExecutable(flags == 11711u ? std::string("deko3d_shaders.bin")  // 2026-11-16: 1471 + PressureSink
                                           : "deko3d_shaders_f" + std::to_string(flags) + ".bin").string();
   c.file = std::fopen(c.path.c_str(), "r+b");
   bool fresh = c.file == nullptr;

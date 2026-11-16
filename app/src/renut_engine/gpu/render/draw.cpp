@@ -158,6 +158,11 @@ REXCVAR_DEFINE_STRING(ffns_ui_menu_post_ps, "1429E4E50D5FBDDE,B32FA7CD13543D57,8
 // the list), and in the Live Trigger it comes before the listed effects.
 REXCVAR_DEFINE_STRING(ffns_ui_menu_post_ps_after, "DABFE170B1431EDD", "FFNS/Graphics",
                       "ffns_ui_native: like ffns_ui_menu_post_ps, but only when this frame or the one before drew with a depth target");
+// FFXIII-2-NX (2026-11-16): see InertDrawLocked
+REXCVAR_DEFINE_BOOL(ffns_skip_inert_draws, true, "FFNS/Graphics",
+                    "Renut's renderer (from renut_nx_ultimate_base / tw2de_nx): draws that can write nothing (no colour "
+                    "channel, no depth write, no stencil operation, no memory export) are not drawn. Same pixels")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DECLARE(bool, sa2_renut_neon_compare);  // sa2-nx (2026-10-20): backend/queued.cpp
 
 uint32_t Ffxiii2DeclarationRecord(uint32_t guest_declaration);  // ffxiii2-nx: d3d/hooks/shader.cpp
@@ -4502,7 +4507,56 @@ bool SameTargets(const Targets &a, const Targets &b) {
   return true;
 }
 
+// FFXIII-2-NX (2026-11-16, from renut_nx_ultimate_base's sasrt_gpu_skip_inert_draws via tw2de_nx): whether a draw can
+// write nothing at all: no colour channel in the colour mask (whatever is bound), no depth write (tested and written), no
+// stencil operation, and neither shader exports to memory. Such a draw is not drawn and its targets are not bound for
+// it. This renderer counts no occlusion queries (tw2de_nx keeps such draws while one is open), so nothing can see it.
+// A shader the renderer does not know yet answers "not inert". Same pixels.
+uint64_t g_ffns_inert_skipped = 0;
+[[gnu::noinline]] bool InertDrawLocked(const u8 *device_state) {
+  const GuestDevice device(device_state);
+  if (!device.valid())
+    return false;
+  const d3d::Device &dev = device.dev();
+  const u32 dc = u32(dev.m_ControlPacket.DepthControl);
+  if ((dc & 6) == 6)  // Z_ENABLE and Z_WRITE_ENABLE
+    return false;
+  if (u32(dev.m_ValuesPacket.ColorMask) & 0xFFFF)
+    return false;
+  if ((dc & 1) && (((dc >> 11) & 0x1FF) != 0 || ((dc >> 20) & 0x1FF) != 0))  // STENCIL_ENABLE with an operation
+    return false;
+  const auto exports = [](const ShaderRecord *r) {
+    if (!r->entry)
+      return true;
+    for (const u32 m : r->entry->memExportConstants)
+      if (m)
+        return true;
+    return false;
+  };
+  const ShaderRecord *vs = FindShaderLocked(device.U32(d3d::kDeviceOffsetVertexShader), RecordKind::VertexShader);
+  if (!vs || exports(vs))
+    return false;
+  if (const u32 ps_va = device.U32(d3d::kDeviceOffsetPixelShader)) {
+    const ShaderRecord *ps = FindShaderLocked(ps_va, RecordKind::PixelShader);
+    if (!ps || exports(ps))
+      return false;
+  }
+  return true;
+}
+
 bool DrawStateLocked(const u8 *device_state, const DrawCall &call, const ReplayConstants *replay) {
+  {  // FFXIII-2-NX (2026-11-16, ffns_skip_inert_draws)
+    static const bool skip_inert = REXCVAR_GET(ffns_skip_inert_draws);
+    if (skip_inert) {
+      const GuestDevice inert_device(device_state);
+      const u32 dc = inert_device.valid() ? u32(inert_device.dev().m_ControlPacket.DepthControl) : 6u;
+      if ((dc & 6) != 6 && InertDrawLocked(device_state)) [[unlikely]] {
+        if ((++g_ffns_inert_skipped & 0x3FFF) == 1)
+          RGPU_INFO("[inert] {} draws that write nothing skipped so far (ffns_skip_inert_draws)", g_ffns_inert_skipped);
+        return true;
+      }
+    }
+  }
   ++g_trace_draws;
   g_ffxiii2_diag[2].fetch_add(1, std::memory_order_relaxed);
   auto &s = State();
