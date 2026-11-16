@@ -33,6 +33,7 @@
 
 #include "renut_engine/gpu/backend/backend.h"
 #include "renut_engine/gpu/backend/gpu_profile.h"
+#include "renut_engine/gpu/backend/render_thread.h"
 #include "renut_engine/gpu/guest/command_buffers.h"
 #include "renut_engine/gpu/d3d/d3d.h"
 #include "renut_engine/gpu/render/format.h"
