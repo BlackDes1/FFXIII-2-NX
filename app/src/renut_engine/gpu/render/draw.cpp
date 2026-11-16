@@ -157,7 +157,7 @@ REXCVAR_DEFINE_STRING(ffns_ui_menu_post_ps, "1429E4E50D5FBDDE,B32FA7CD13543D57,8
 // also draws a 2D screen's whole layer into the screen's surface (the load screen's text went to 612 lines with it in
 // the list), and in the Live Trigger it comes before the listed effects.
 REXCVAR_DEFINE_STRING(ffns_ui_menu_post_ps_after, "DABFE170B1431EDD", "FFNS/Graphics",
-                      "ffns_ui_native: like ffns_ui_menu_post_ps, but only in a frame that drew with a depth target");
+                      "ffns_ui_native: like ffns_ui_menu_post_ps, but only when this frame or the one before drew with a depth target");
 REXCVAR_DECLARE(bool, sa2_renut_neon_compare);  // sa2-nx (2026-10-20): backend/queued.cpp
 
 uint32_t Ffxiii2DeclarationRecord(uint32_t guest_declaration);  // ffxiii2-nx: d3d/hooks/shader.cpp
@@ -1338,7 +1338,9 @@ bool UiMenuPostPs(uint64_t ps_hash) {
     return false;
   if (std::find(list.begin(), list.end(), ps_hash) != list.end())
     return true;
-  return g_ui_menu_post_frame == UiFrameSerialLocked() && std::find(after.begin(), after.end(), ps_hash) != after.end();
+  // This frame or the one before (the Live Trigger's frame starts with the copy, before its 3D draws).
+  return g_ui_menu_post_frame + 1 >= UiFrameSerialLocked() && g_ui_menu_post_frame != UINT64_MAX &&
+         std::find(after.begin(), after.end(), ps_hash) != after.end();
 }
 
 bool UiPostPs(uint64_t ps_hash) {
