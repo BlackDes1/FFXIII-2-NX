@@ -284,7 +284,10 @@ bool SearchSharedOwnMemory() {
     if (info.size == 0) {
       return false;
     }
-    if (info.type == MemType_SharedMem && (info.perm & Perm_R) != 0 && info.size >= kSharedSize) {
+    // mk9-nx (2026-11-08; port 56): readable AND writable. The block found here is written every second; a region
+    // mapped read-only that held the magic ended the game ("FPS block already present: writing over it", then a data
+    // abort in Update on the profiler thread).
+    if (info.type == MemType_SharedMem && (info.perm & Perm_Rw) == Perm_Rw && info.size >= kSharedSize) {
       auto* base = reinterpret_cast<uint8_t*>(uintptr_t(info.addr));
       const size_t bytes = size_t(info.size) < 0x10000 ? size_t(info.size) : 0x10000;
       if (SearchMarkIn(base, bytes, kMagicFps) || SearchMarkIn(base, bytes, kMagicReverseNx)) {

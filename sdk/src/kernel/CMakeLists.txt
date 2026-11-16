@@ -51,7 +51,7 @@ set(REXKERNEL_SOURCES
     xboxkrnl/xboxkrnl_rtl.cpp
     xboxkrnl/xboxkrnl_strings.cpp
     xboxkrnl/xboxkrnl_threading.cpp
-    # xboxkrnl/xboxkrnl_usbcam.cpp  # TODO: lol eventually.
+    xboxkrnl/xboxkrnl_usbcam.cpp  # peggle1-nx (2026-10-21): Peggle imports the XUsbcam* functions (Xbox Live Vision); "not connected"
     xboxkrnl/xboxkrnl_video.cpp
     xboxkrnl/xboxkrnl_xconfig.cpp
     xboxkrnl/xboxkrnl_audio.cpp

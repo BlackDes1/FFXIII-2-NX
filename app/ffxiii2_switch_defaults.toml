@@ -64,3 +64,6 @@ ffns_shadow_far_every = 2
 # ffns_diag_ps_trace_s). SMAA itself stays off unless the player turns it on (banjo_renut_smaa). NOT pixel-identical on.
 banjo_renut_smaa_after_ps = "A2FBF0ABD9576D65"
 banjo_renut_smaa = false
+
+# renut-ultimate base SDK (2026-11-16): no guest sign-in of further controllers (single-player game; botbase pad is player 2)
+xam_guest_signin = false

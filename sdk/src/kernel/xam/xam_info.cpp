@@ -355,4 +355,19 @@ REX_EXPORT(__imp__XamAlloc, rex::kernel::xam::XamAlloc_entry)
 REX_EXPORT(__imp__XamFree, rex::kernel::xam::XamFree_entry)
 REX_EXPORT(__imp__XamQueryLiveHiveW, rex::kernel::xam::XamQueryLiveHiveW_entry)
 REX_EXPORT(__imp__XamLoaderGetDvdTrayState, rex::kernel::xam::XamLoaderGetDvdTrayState_entry)
-REX_EXPORT(__imp__XamSwapDisc, rex::kernel::xam::XamSwapDisc_entry)
+// ds3-nx (2026-10-24, sdk-patches/0014; port 57): a multi-disc title can take the request over (switch its disc
+// mounts, signal the completion event the guest passes in r4) with rex::kernel::xam::SetSwapDiscHandler (module.h);
+// the stub above stays the default. The handler gets the guest call as it is.
+namespace rex::kernel::xam {
+static void (*g_swap_disc_handler)(PPCContext& ctx, uint8_t* base) = nullptr;
+void SetSwapDiscHandler(void (*handler)(PPCContext& ctx, uint8_t* base)) { g_swap_disc_handler = handler; }
+}  // namespace rex::kernel::xam
+extern "C" REX_FUNC(__imp__XamSwapDisc) {
+  REX_EXPORT_CENSUS("__imp__XamSwapDisc");
+  if (rex::kernel::xam::g_swap_disc_handler) {
+    rex::kernel::xam::g_swap_disc_handler(ctx, base);
+    return;
+  }
+  rex::ppc::HostToGuestFunction<rex::kernel::xam::XamSwapDisc_entry>(ctx, base);
+}
+static rex::ppc::detail::PPCFuncRegistrar _ppc_reg___imp__XamSwapDisc("__imp__XamSwapDisc", &__imp__XamSwapDisc);

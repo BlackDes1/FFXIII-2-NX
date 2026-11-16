@@ -124,6 +124,8 @@ FfnsWaitScope::~FfnsWaitScope() {
   FfnsWaitRecord(key_, end - start_ns_);
 }
 
+void ApplyGuestCoreLayoutAtWait();  // dishonored-nx (sa2-nx's; port 103): xthread.cpp, RexSetGuestThreadCoreLayout
+
 XObject::XObject(Type type) : kernel_state_(nullptr), pointer_ref_count_(1), type_(type) {
   handles_.reserve(10);
 }
@@ -287,6 +289,7 @@ uint32_t XObject::TimeoutTicksToMs(int64_t timeout_ticks) {
 
 X_STATUS XObject::Wait(uint32_t wait_reason, uint32_t processor_mode, uint32_t alertable,
                        uint64_t* opt_timeout) {
+  ApplyGuestCoreLayoutAtWait();  // dishonored-nx (sa2-nx's; port 103)
   REX_SYS_CENSUS(rex::syscount::kCensusWait, 1);
   FfnsWaitScope ffns_wait(0x100 + static_cast<uint32_t>(type()));
   auto wait_handle = GetWaitHandle();
@@ -302,14 +305,19 @@ X_STATUS XObject::Wait(uint32_t wait_reason, uint32_t processor_mode, uint32_t a
   XThread::CheckTitleTermination();
   auto result = rex::thread::Wait(wait_handle, alertable ? true : false, timeout_ms);
   XThread::CheckTitleTermination();
+  // blur-nx (2026-11-13, #57 / #34's census, PC): polls, and their timeouts.
+  const bool poll = timeout_ms.count() == 0;
+  if (poll) REX_SYS_CENSUS(rex::syscount::kCensusWaitPoll, 1);
   switch (result) {
     case rex::thread::WaitResult::kSuccess:
+      REX_SYS_CENSUS(rex::syscount::kCensusWaitSignalled, 1);
       WaitCallback();
       return X_STATUS_SUCCESS;
     case rex::thread::WaitResult::kUserCallback:
       // Or X_STATUS_ALERTED?
       return X_STATUS_USER_APC;
     case rex::thread::WaitResult::kTimeout:
+      if (poll) REX_SYS_CENSUS(rex::syscount::kCensusWaitPollTimeout, 1);
       rex::thread::MaybeYield();
       return X_STATUS_TIMEOUT;
     default:
@@ -323,6 +331,7 @@ X_STATUS XObject::SignalAndWait(XObject* signal_object, XObject* wait_object, ui
                                 uint32_t processor_mode, uint32_t alertable,
                                 uint64_t* opt_timeout) {
   FfnsWaitScope ffns_wait(0x400 + static_cast<uint32_t>(wait_object->type()));
+  ApplyGuestCoreLayoutAtWait();  // dishonored-nx (sa2-nx's; port 103)
   auto timeout_ms = opt_timeout ? std::chrono::milliseconds(chrono::Clock::ScaleGuestDurationMillis(
                                       TimeoutTicksToMs(*opt_timeout)))
                                 : std::chrono::milliseconds::max();
@@ -351,7 +360,17 @@ X_STATUS XObject::WaitMultiple(uint32_t count, XObject** objects, uint32_t wait_
                                uint32_t wait_reason, uint32_t processor_mode, uint32_t alertable,
                                uint64_t* opt_timeout) {
   FfnsWaitScope ffns_wait(0x200 + (count & 0xFF));
-  std::vector<rex::thread::WaitHandle*> wait_handles(count);
+  ApplyGuestCoreLayoutAtWait();  // dishonored-nx (sa2-nx's; port 103)
+  // port 59 (2026-11-10, from LostOdysseyRecomp 299ac550): no heap allocation per call: up to 64 objects
+  // (the 360's MAXIMUM_WAIT_OBJECTS) on the stack, more on the heap as before (newlib's malloc has one lock
+  // for every thread).
+  rex::thread::WaitHandle* inline_handles[64];
+  std::vector<rex::thread::WaitHandle*> heap_handles;
+  rex::thread::WaitHandle** wait_handles = inline_handles;
+  if (count > 64) {
+    heap_handles.resize(count);
+    wait_handles = heap_handles.data();
+  }
   for (size_t i = 0; i < count; ++i) {
     wait_handles[i] = objects[i]->GetWaitHandle();
     assert_not_null(wait_handles[i]);
@@ -364,7 +383,7 @@ X_STATUS XObject::WaitMultiple(uint32_t count, XObject** objects, uint32_t wait_
   XThread::CheckTitleTermination();
   if (wait_type) {
     auto result =
-        rex::thread::WaitAny(std::move(wait_handles), alertable ? true : false, timeout_ms);
+        rex::thread::WaitAny(wait_handles, count, alertable ? true : false, timeout_ms);
     XThread::CheckTitleTermination();
     switch (result.first) {
       case rex::thread::WaitResult::kSuccess:
@@ -385,7 +404,7 @@ X_STATUS XObject::WaitMultiple(uint32_t count, XObject** objects, uint32_t wait_
     }
   } else {
     auto result =
-        rex::thread::WaitAll(std::move(wait_handles), alertable ? true : false, timeout_ms);
+        rex::thread::WaitAll(wait_handles, count, alertable ? true : false, timeout_ms);
     XThread::CheckTitleTermination();
     switch (result) {
       case rex::thread::WaitResult::kSuccess:

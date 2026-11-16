@@ -9,6 +9,8 @@
  * @modified    Tom Clay, 2026 - Adapted for ReXGlue runtime
  */
 
+#include <atomic>  // blur-nx (2026-11-12): the release-before-Initialize warning, once
+
 #include <rex/logging.h>
 #include <rex/stream.h>
 #include <rex/system/kernel_state.h>
@@ -45,6 +47,19 @@ X_STATUS XMutant::ReleaseMutant(uint32_t priority_increment, bool abandon, bool 
 
   // TODO(benvanik): abandoning.
   assert_false(abandon);
+  // blur-nx (2026-11-12): the object's handle is published (XObject's constructor) before Initialize creates the native
+  // mutant, so a release from another thread in that window found mutant_ null: Blur's first instrumented LTO+PGO NRO
+  // stopped there 43 s into Ryujinx (2026-11-11, NtReleaseMutant -> ReleaseMutant, a virtual call through null), one run
+  // in three. A mutant not created yet is owned by nobody: the release fails as it would for any thread that does not
+  // own it, and says so once.
+  if (!mutant_) [[unlikely]] {
+    static std::atomic<bool> said{false};
+    if (!said.exchange(true))
+      REXSYS_WARN("XMutant {:08X}: released before its native mutant exists (handle published before Initialize); "
+                  "X_STATUS_MUTANT_NOT_OWNED",
+                  handle());
+    return X_STATUS_MUTANT_NOT_OWNED;
+  }
   if (mutant_->Release()) {
     return X_STATUS_SUCCESS;
   } else {

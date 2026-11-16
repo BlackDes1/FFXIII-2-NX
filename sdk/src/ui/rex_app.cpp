@@ -695,8 +695,12 @@ void ReXApp::OnDestroy() {
     window_->RemoveInputListener(this);
     window_->RemoveListener(this);
   }
-  window_.reset();
+  // peggle1-nx (2026-10-21): the runtime first, while the window is still alive. Its input system's keyboard/mouse
+  // driver detaches from the window in its destructor (MnkInputDriver::DetachFromWindow); with the window gone first
+  // that touched a destroyed window and threw std::system_error ("Invalid argument") out of a destructor: a
+  // std::terminate crash log at every exit on the console.
   runtime_.reset();
+  window_.reset();
 }
 
 void ReXApp::SetGuestFrameStats(ui::DebugOverlayDialog::FrameStatsProvider provider) {

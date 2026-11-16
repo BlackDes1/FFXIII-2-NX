@@ -59,7 +59,7 @@
 
 REXCVAR_DEFINE_STRING(log_network, "", "Log",
                       "Switch: also send every log line (and stdout/stderr, e.g. NVK's messages) over TCP to this "
-                      "host:port, for watching a run live (e.g. 192.168.1.76:28771). Empty = off");
+                      "host:port, for watching a run live (e.g. YOUR_PC_IP:28771). Empty = off");
 REXCVAR_DEFINE_STRING(log_level, "info", "Log",
                       "Global log level: trace, debug, info, warn, error, critical, off")
     .allowed({"trace", "debug", "info", "warn", "error", "critical", "off"});

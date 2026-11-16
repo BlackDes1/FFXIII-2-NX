@@ -433,7 +433,9 @@ __asm__(".text\n"
  * abort() and exit() use it too, see switch_crash_hooks.c. That is why ctx can be null: then there
  * are no registers, only the stack from 'stack'.
  */
-extern "C" void _start(void);
+// renut-ultimate (2026-11-12, port 89; sasrt-nx): a variable, as switch_code_blocks.cpp and guest_memory_switch.cpp
+// declare it: in one LTO link lto1 refuses a function and a variable of the same name. Only its address is used.
+extern "C" char _start;
 
 namespace {
 

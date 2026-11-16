@@ -750,6 +750,10 @@ object_ref<UserModule> KernelState::LoadUserModule(const std::string_view raw_na
   // Wire recompiled code (if any) before publishing to user_modules_, so a
   // failure in this block leaves no half-loaded entry behind.
   auto recomp = FindRecompiledModule(path);
+  if (!recomp) {
+    // ds3-nx (2026-10-24, sdk-patches/0015; port 57)
+    REXSYS_WARN("LoadUserModule: no recompiled code registered for '{}' (its functions will not run)", path);
+  }
   bool wired_recomp = false;
   if (recomp && !recomp->shared_lib_name.empty()) {
     const std::string& lib_key = recomp->guest_path;
@@ -929,6 +933,23 @@ std::optional<KernelState::RecompiledModuleInfo> KernelState::FindRecompiledModu
     if (info.guest_path == normalized)
       return info;
   }
+  // ds3-nx (2026-10-24, sdk-patches/0015; port 57): a title may remap game: to a device of its own (a title update
+  // folder, a disc), so the path the loader builds ("device/<name>/<file>") is not the one the manifest gave. Fall back
+  // to the file name when exactly one module has it.
+  auto file_name = [](std::string_view path) {
+    auto slash = path.find_last_of('/');
+    return slash == std::string_view::npos ? path : path.substr(slash + 1);
+  };
+  const KernelState::RecompiledModuleInfo* match = nullptr;
+  for (const auto& info : recompiled_modules_) {
+    if (file_name(info.guest_path) != file_name(normalized))
+      continue;
+    if (match)
+      return std::nullopt;
+    match = &info;
+  }
+  if (match)
+    return *match;
   return std::nullopt;
 }
 

@@ -29,7 +29,9 @@
 #include <atomic>   // banjo-nx (2026-10-27): the system core
 #include <cstring>  // banjo-nx (2026-10-20, from sa2-nx): RexSwitchSetThreadMaskOf
 #include <mutex>
+#include <string>        // blur-nx (2026-11-12): switch_thread_priorities
 #include <unordered_map>
+#include <vector>
 
 #include <rex/cvar.h>  // banjo-nx (2026-10-27): banjo_system_core
 #include <sys/stat.h>   // banjo-nx (2026-10-27): mkdir (RexSwitchEnsureForwarderNpdm)
@@ -66,6 +68,24 @@ REXCVAR_DEFINE_STRING(banjo_forwarder_program_id, "05D6EA1333487000", "Banjo/Thr
                       "ExeFS file replacement) when it is missing or different; the next launch of the forwarder gets "
                       "all four cores (banjo_system_core). Under any other id (a game's, through title takeover) "
                       "nothing is written. Empty: never")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+// blur-nx (2026-11-12, CPU batch 3; codegen-ideas-3 CG-01): see RexSwitchApplyNamedPriority.
+REXCVAR_DEFINE_STRING(switch_thread_priorities, "", "Threading",
+                      "Host priorities for named threads, set when a thread takes its name: a comma-separated list "
+                      "of NAME_PREFIX=PRIORITY (0x1C-0x3B; lower runs first; the game's threads are at 0x3B, the audio "
+                      "threads at 0x2A-0x2D). Example: \"Game Master=0x3A,JQ Worker 0=0x3A\". Empty: no change")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+// blur-nx (2026-11-12, CPU batch 3; codegen-ideas-3 CG-02): see RexSwitchApplyNamedPriority.
+REXCVAR_DEFINE_STRING(switch_thread_cores, "", "Threading",
+                      "Host core masks for named threads, set when a thread takes its name: a comma-separated list of "
+                      "NAME_PREFIX=MASK (bits 0-3 = cores 0-3, within the process's cores; the lowest core preferred). "
+                      "Example: \"JQ Worker 3=0xC\". Empty: no change")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+// blur-nx (2026-11-13, #60 of Blur's docs/cpu-near-exact-50-1113.md; timing only): see RexSwitchApplyNamedPriority.
+REXCVAR_DEFINE_STRING(switch_yield_backoff_exempt, "", "Threading",
+                      "Named threads that never take switch_yield_backoff's sleep (a comma-separated list of name "
+                      "prefixes, set when a thread takes its name): a frame-chain thread polling for a job keeps "
+                      "yielding instead of sleeping (~1 ms on Horizon). Example: \"Game Master,JQ Worker 0\". Empty: none")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_BOOL(banjo_system_core_test, false, "Banjo/Debug",
                     "Test of banjo_system_core's layout without a four-core launch: the process's highest core (2 with "
@@ -689,6 +709,116 @@ bool RexSwitchCoreIdleSample(int core, unsigned long long* idle_ticks, unsigned 
   *at_ticks = at;
   return true;
 }
+
+// sasrt-nx (2026-11-10; port 65, thread_event_address_wait): threading_posix.cpp's events wait on an address
+// (address_event_core.h); these keep libnx's names out of that file.
+bool RexSwitchWaitIfEqual(volatile uint32_t* word, uint32_t value, int64_t ns) {
+  const Result rc = svcWaitForAddress((void*)word, ArbitrationType_WaitIfEqual, (s64)(s32)value, ns);
+  return R_VALUE(rc) != KERNELRESULT(TimedOut);
+}
+void RexSwitchWakeAddress(volatile uint32_t* word, int32_t count) {
+  svcSignalToAddress((void*)word, SignalType_Signal, 0, count);
+}
+
+}  // extern "C"
+
+/*
+ * blur-nx (2026-11-12, CPU batch 3; codegen-ideas-3 CG-01): switch_thread_priorities. Every guest thread runs at one
+ * priority (0x3B: ignore_thread_priorities), and Horizon time-slices a core's threads of that priority in 10 ms
+ * slices, so a thread on the frame's critical path that wakes up behind a long audio job waits for the slice to end.
+ * This table gives named threads a priority of their own when they take their name (RexSwitchPerfSetThreadName: a
+ * thread naming itself, which is how the guest's threads and the SDK's are named). A thread above 0x3B is not
+ * time-sliced with its peers: it runs until it waits. The guest's polling waits sleep 100 us after 16 quick yields
+ * (MaybeYield's switch_yield_backoff), so a raised thread that spins on a job a lower one holds still lets it run.
+ */
+// The same for cores (codegen-ideas-3 CG-02): switch_thread_cores gives a named thread a core mask of its own (within the
+// process's cores; the lowest core of the mask preferred), through svcSetThreadCoreMask's wrap (banjo_system_core's
+// rules still apply: in mode 1 a mask of several cores loses core 3).
+namespace {
+struct NamedValue {
+  std::string prefix;
+  long value;
+};
+std::once_flag g_named_once;
+std::vector<NamedValue> g_named_priority, g_named_cores;
+std::vector<std::string> g_named_exempt;  // blur-nx (2026-11-13, #60): switch_yield_backoff_exempt's prefixes
+std::atomic<uint32_t> g_named_applied{0};
+
+// "PREFIX=VALUE,PREFIX=VALUE": each value read by strtol (0x.. hex); entries outside [lo, hi] are dropped.
+void ParseNamed(const std::string& spec, long lo, long hi, std::vector<NamedValue>& out) {
+  size_t at = 0;
+  while (at < spec.size()) {
+    size_t end = spec.find(',', at);
+    if (end == std::string::npos) end = spec.size();
+    const std::string item = spec.substr(at, end - at);
+    at = end + 1;
+    const size_t eq = item.rfind('=');
+    if (eq == std::string::npos || eq == 0) continue;
+    size_t a = 0, b = eq;
+    while (a < b && item[a] == ' ') ++a;
+    while (b > a && item[b - 1] == ' ') --b;
+    char* tail = nullptr;
+    const long v = std::strtol(item.c_str() + eq + 1, &tail, 0);
+    if (b == a || tail == item.c_str() + eq + 1 || v < lo || v > hi) continue;
+    out.push_back({item.substr(a, b - a), v});
+  }
+}
+
+void ParseNamedTables() {
+  // An application's priorities (its NPDM: 0x1C-0x3B for the usual one); the audio threads sit at 0x2A-0x2D.
+  ParseNamed(REXCVAR_GET(switch_thread_priorities), 0x1C, 0x3B, g_named_priority);
+  ParseNamed(REXCVAR_GET(switch_thread_cores), 0x1, 0xF, g_named_cores);
+  // blur-nx (2026-11-13, #60): "PREFIX,PREFIX" (blanks around each trimmed).
+  const std::string exempt = REXCVAR_GET(switch_yield_backoff_exempt);
+  size_t at = 0;
+  while (at < exempt.size()) {
+    size_t end = exempt.find(',', at);
+    if (end == std::string::npos) end = exempt.size();
+    size_t a = at, b = end;
+    while (a < b && exempt[a] == ' ') ++a;
+    while (b > a && exempt[b - 1] == ' ') --b;
+    if (b > a) g_named_exempt.push_back(exempt.substr(a, b - a));
+    at = end + 1;
+  }
+}
+
+const NamedValue* FindNamed(const std::vector<NamedValue>& table, const char* name) {
+  for (const NamedValue& n : table)
+    if (std::strncmp(name, n.prefix.c_str(), n.prefix.size()) == 0) return &n;
+  return nullptr;
+}
+}  // namespace
+
+extern "C" {
+
+// blur-nx (2026-11-13, #60): the calling thread is exempt from the yield backoff (MaybeYield reads it).
+thread_local bool g_rex_yield_backoff_exempt = false;
+
+int RexSwitchApplyNamedPriority(unsigned handle, const char* name) {
+  if (!handle || !name) return -1;
+  std::call_once(g_named_once, ParseNamedTables);
+  // blur-nx (2026-11-13, #60): switch_yield_backoff_exempt, for the thread naming itself.
+  if (!g_named_exempt.empty() && handle == threadGetCurHandle()) {
+    for (const std::string& prefix : g_named_exempt)
+      if (std::strncmp(name, prefix.c_str(), prefix.size()) == 0) g_rex_yield_backoff_exempt = true;
+  }
+  if (g_named_priority.empty() && g_named_cores.empty()) return -1;
+  int result = -1;  // (the exemption above needs no table of these)
+  if (const NamedValue* c = FindNamed(g_named_cores, name)) {
+    const u32 mask = u32(c->value) & RexSwitchProcessCoreMask();
+    if (mask != 0 && R_SUCCEEDED(svcSetThreadCoreMask(handle, __builtin_ctz(mask), mask)))
+      g_named_applied.fetch_add(1, std::memory_order_relaxed);
+  }
+  if (const NamedValue* p = FindNamed(g_named_priority, name)) {
+    if (R_SUCCEEDED(svcSetThreadPriority(handle, int(p->value)))) {
+      g_named_applied.fetch_add(1, std::memory_order_relaxed);
+      result = int(p->value);
+    }
+  }
+  return result;
+}
+
+unsigned RexSwitchNamedPrioritiesApplied(void) { return g_named_applied.load(std::memory_order_relaxed); }
 
 }  // extern "C"
 

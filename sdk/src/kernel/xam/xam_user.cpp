@@ -12,9 +12,14 @@
 // Disable warnings about unused parameters for kernel functions
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 
+#include <atomic>
 #include <cstring>
+#include <string>
 
 #include <rex/cvar.h>
+#include <rex/input/input.h>
+#include <rex/input/input_system.h>
+#include <rex/runtime.h>
 #include <rex/kernel/xam/private.h>
 #include <rex/logging.h>
 #include <rex/math.h>
@@ -29,12 +34,57 @@
 #include <rex/system/xtypes.h>
 
 REXCVAR_DEFINE_UINT32(user_language, 1, "Kernel", "User's language ID");
+REXCVAR_DEFINE_BOOL(xam_guest_signin, true, "Kernel",
+                    "When the game opens the sign-in screen, every further connected controller (2 to 4) is signed "
+                    "in as a guest of the profile, as choosing a guest on the console does. Off: only controller 1 "
+                    "has a profile, and a game that wants one per local player takes no second player");
 
 namespace rex {
 namespace kernel {
 namespace xam {
 using namespace rex::system;
 using namespace rex::system::xam;
+
+namespace {
+
+// Guests of the profile: the users 1 to 3 the sign-in screen has signed in (bit n = user n). They stay signed in.
+// A guest has the console's guest flag in its sign-in info (dwInfoFlags bit 1), the guest number and user 0 as its
+// sponsor; it has no profile settings and no content of its own.
+std::atomic<uint32_t> g_guests{0};
+
+bool IsGuest(uint32_t user_index) {
+  return user_index >= 1 && user_index < 4 && ((g_guests.load(std::memory_order_relaxed) >> user_index) & 1);
+}
+
+// The profile's XUID with the guest number in bits 54 and 55 (distinct from the profile's and from each other).
+uint64_t GuestXuid(uint32_t user_index) {
+  return REX_KERNEL_STATE()->user_profile()->xuid() ^ (uint64_t(user_index) << 54);
+}
+
+// "Name(1)", as the console names guests; at most 15 characters.
+std::string GuestName(uint32_t user_index) {
+  std::string name = REX_KERNEL_STATE()->user_profile()->name();
+  if (name.size() > 12) name.resize(12);
+  return name + "(" + std::to_string(user_index) + ")";
+}
+
+// Signs in every connected controller beyond the first that is not signed in yet; the mask of all signed-in users.
+uint32_t SignInGuests() {
+  uint32_t guests = g_guests.load(std::memory_order_relaxed);
+  if (REXCVAR_GET(xam_guest_signin)) {
+    auto* input = static_cast<rex::input::InputSystem*>(REX_KERNEL_STATE()->emulator()->input_system());
+    for (uint32_t user = 1; user < 4 && input; ++user) {
+      rex::input::X_INPUT_STATE state;
+      if (((guests >> user) & 1) || input->GetState(user, &state) != X_ERROR_SUCCESS) continue;
+      guests |= 1u << user;
+      REXKRNL_INFO("[XAM] controller {} signed in as guest {} of the profile", user + 1, GuestName(user));
+    }
+    g_guests.store(guests, std::memory_order_relaxed);
+  }
+  return 1u | guests;
+}
+
+}  // namespace
 
 i32 XamUserGetXUID_entry(u32 user_index, u32 type_mask, mapped_u64 xuid_ptr) {
   assert_true(type_mask == 1 || type_mask == 2 || type_mask == 3 || type_mask == 4 ||
@@ -57,6 +107,9 @@ i32 XamUserGetXUID_entry(u32 user_index, u32 type_mask, mapped_u64 xuid_ptr) {
         xuid = user_profile->xuid();
         result = X_E_SUCCESS;
       }
+    } else if (IsGuest(user_index)) {
+      xuid = GuestXuid(user_index);
+      result = X_E_SUCCESS;
     }
   } else {
     result = X_E_INVALIDARG;
@@ -71,6 +124,8 @@ u32 XamUserGetSigninState_entry(u32 user_index) {
     if (user_index == 0) {
       const auto& user_profile = REX_KERNEL_STATE()->user_profile();
       signin_state = user_profile->signin_state();
+    } else if (IsGuest(user_index)) {
+      signin_state = 1;  // signed in locally
     }
   }
   return signin_state;
@@ -92,6 +147,15 @@ i32 XamUserGetSigninInfo_entry(u32 user_index, u32 flags, ppc_ptr_t<X_USER_SIGNI
   }
 
   std::memset(info, 0, sizeof(X_USER_SIGNIN_INFO));
+  if (IsGuest(user_index)) {
+    info->xuid = GuestXuid(user_index);
+    info->unk08 = 2;  // dwInfoFlags: XUSER_INFO_FLAG_GUEST
+    info->signin_state = 1;
+    info->unk10 = static_cast<uint32_t>(user_index);  // dwGuestNumber
+    info->unk14 = 0;                                  // dwSponsorUserIndex
+    rex::string::copy_truncating(info->name, GuestName(user_index), rex::countof(info->name));
+    return X_E_SUCCESS;
+  }
   if (user_index) {
     return X_E_NO_SUCH_USER;
   }
@@ -108,7 +172,20 @@ u32 XamUserGetName_entry(u32 user_index, mapped_string buffer, u32 buffer_len) {
     return X_E_INVALIDARG;
   }
 
+  if (IsGuest(user_index)) {
+    rex::string::copy_truncating(buffer, GuestName(user_index), std::min(buffer_len, uint32_t(16)));
+    return X_E_SUCCESS;
+  }
   if (user_index) {
+    // peggle1-nx (2026-10-21): Peggle's same-console duel lets controller 2 join without a sign-in and shows what
+    // XUserGetName left in its stack buffer without looking at the result (sub_82645660): "S?ÿB" as player 2's name.
+    // With xam_guest_signin, a connected controller without a profile is named as its guest would be.
+    auto* input = static_cast<rex::input::InputSystem*>(REX_KERNEL_STATE()->emulator()->input_system());
+    rex::input::X_INPUT_STATE state;
+    if (REXCVAR_GET(xam_guest_signin) && input && input->GetState(user_index, &state) == X_ERROR_SUCCESS) {
+      rex::string::copy_truncating(buffer, GuestName(user_index), std::min(buffer_len, uint32_t(16)));
+      return X_E_SUCCESS;
+    }
     return X_E_NO_SUCH_USER;
   }
 
@@ -123,7 +200,7 @@ u32 XamUserGetGamerTag_entry(u32 user_index, mapped_wstring buffer, u32 buffer_l
     return X_E_INVALIDARG;
   }
 
-  if (user_index) {
+  if (user_index && !IsGuest(user_index)) {
     return X_E_NO_SUCH_USER;
   }
 
@@ -132,7 +209,7 @@ u32 XamUserGetGamerTag_entry(u32 user_index, mapped_wstring buffer, u32 buffer_l
   }
 
   const auto& user_profile = REX_KERNEL_STATE()->user_profile();
-  auto user_name = rex::string::to_utf16(user_profile->name());
+  auto user_name = rex::string::to_utf16(user_index ? GuestName(user_index) : user_profile->name());
   rex::string::copy_and_swap_truncating(buffer, user_name, std::min(buffer_len, uint32_t(16)));
   return X_E_SUCCESS;
 }
@@ -211,8 +288,12 @@ uint32_t XamUserReadProfileSettingsEx(uint32_t title_id, uint32_t user_index, ui
   // Title ID = 0 means us.
   // 0xfffe07d1 = profile?
 
-  if (!xuids && user_index) {
-    // Only support user 0.
+  // peggle2-nx (2026-10-20): a guest reads the profile's settings, as a guest on the console gets settings. Without
+  // them Peggle 2 made no game profile for a guest (its sign-in handler reads every signed-in user's settings), and in a
+  // local duel player 2's turns then took player 1's controller (player 2's own did nothing; the lobby, which reads
+  // the controllers directly, worked).
+  if (!xuids && user_index && !IsGuest(user_index)) {
+    // Only support user 0 (and its guests).
     if (overlapped) {
       REX_KERNEL_STATE()->CompleteOverlappedImmediate(
           REX_KERNEL_MEMORY()->HostToGuestVirtual(overlapped), X_ERROR_NO_SUCH_USER);
@@ -394,7 +475,7 @@ u32 XamUserCheckPrivilege_entry(u32 user_index, u32 mask, mapped_u32 out_value) 
       return X_ERROR_INVALID_PARAMETER;
     }
 
-    if (user_index) {
+    if (user_index && !IsGuest(user_index)) {
       return X_ERROR_NO_SUCH_USER;
     }
   }
@@ -405,7 +486,7 @@ u32 XamUserCheckPrivilege_entry(u32 user_index, u32 mask, mapped_u32 out_value) 
 }
 
 u32 XamUserContentRestrictionGetFlags_entry(u32 user_index, mapped_u32 out_flags) {
-  if (user_index) {
+  if (user_index && !IsGuest(user_index)) {
     return X_ERROR_NO_SUCH_USER;
   }
 
@@ -497,8 +578,9 @@ u32 XamShowSigninUI_entry(u32 unk, u32 unk_mask) {
 
   // To fix game modes that display a 4 profile signin UI (even if playing
   // alone):
-  // XN_SYS_SIGNINCHANGED
-  REX_KERNEL_STATE()->BroadcastNotification(0x0000000A, 1);
+  // XN_SYS_SIGNINCHANGED, with the mask of the signed-in users: the profile, and as its guests the further
+  // controllers that are connected now (xam_guest_signin)
+  REX_KERNEL_STATE()->BroadcastNotification(0x0000000A, SignInGuests());
   // Games seem to sit and loop until we trigger this notification:
   // XN_SYS_UI (off)
   REX_KERNEL_STATE()->BroadcastNotification(0x00000009, 0);
@@ -611,6 +693,27 @@ class XStaticAchievementEnumerator : public XEnumerator {
   std::vector<AchievementDetails> items_;
   size_t current_item_ = 0;
 };
+
+// peggle1-nx (2026-10-21): the leaderboard enumerators (XUserCreateStatsEnumeratorByRank / ByXuid / ByRating) fail, as
+// for a profile not signed in to Xbox Live: there are no leaderboards without it. A stub "returned" its first argument
+// (the title id, 0 for the running title: success) and left the handle and the buffer size unwritten, so Peggle
+// allocated a buffer of whatever size its stack held and enumerated a handle that was never made.
+u32 XamUserCreateStatsEnumerator_entry(u32 title_id, u32 type, u64 pivot, u32 num_rows, u32 num_specs, u32 specs_ptr,
+                                       mapped_u32 buffer_size_ptr, mapped_u32 handle_ptr) {
+  (void)title_id;
+  (void)type;
+  (void)pivot;
+  (void)num_rows;
+  (void)num_specs;
+  (void)specs_ptr;
+  if (buffer_size_ptr) {
+    *buffer_size_ptr = 0;
+  }
+  if (handle_ptr) {
+    *handle_ptr = 0;
+  }
+  return X_ERROR_FUNCTION_FAILED;
+}
 
 u32 XamUserCreateAchievementEnumerator_entry(u32 title_id, u32 user_index, u32 xuid, u32 flags,
                                              u32 offset, u32 count, mapped_u32 buffer_size_ptr,
@@ -778,7 +881,7 @@ REX_EXPORT_STUB(__imp__XamUserAddRecentPlayer);
 REX_EXPORT_STUB(__imp__XamUserAllowedToPostToSocialNetwork);
 REX_EXPORT_STUB(__imp__XamUserCreateAvatarAssetEnumerator);
 REX_EXPORT_STUB(__imp__XamUserCreatePlayerEnumerator);
-REX_EXPORT_STUB(__imp__XamUserCreateStatsEnumerator);
+REX_EXPORT(__imp__XamUserCreateStatsEnumerator, rex::kernel::xam::XamUserCreateStatsEnumerator_entry)
 REX_EXPORT_STUB(__imp__XamUserCreateTitlesPlayedEnumerator);
 REX_EXPORT_STUB(__imp__XamUserFlushLogonQueue);
 REX_EXPORT_STUB(__imp__XamUserGetAge);

@@ -64,6 +64,7 @@ volatile unsigned long long g_rex_lr_write_checked = 0;
 // rex/ppc/diet_ops.h, REX_DIET_CENSUS_ON: executions of the any-mode float helpers in the game code (conversions,
 // compares, arithmetic, cold paths, float copy loads and stores).
 volatile unsigned long long g_rex_diet_census[6] = {};
+volatile unsigned long long g_rex_nx_census[48] = {};  // rex/ppc/diet_ops.h (renut-ultimate base)
 }
 
 #if defined(_WIN32)
