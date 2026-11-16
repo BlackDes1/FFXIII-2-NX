@@ -47,6 +47,7 @@ param(
     [int]$Jobs = 0,
     [switch]$NoGameFiles,
     [switch]$NoPgo,
+    [switch]$PgoGenerate,
     [switch]$KeepWork,
     [switch]$KeepTools,
     [switch]$NoShaderStore,
@@ -599,9 +600,10 @@ if (-not (IsDone 'cache')) {
 
 # ---- 6. the Switch build (devkitA64, link-time and profile-guided optimisation) ------------------------------------
 $build = Join-Path $repo 'app\out\switch'
+if ($PgoGenerate) { $build = Join-Path $repo 'app\out\switch-pgo-gen' }
 if (-not (IsDone 'switch')) {
     NeedFree 5 'the Switch build'
-    $pgo = -not $NoPgo
+    $pgo = -not $NoPgo -and -not $PgoGenerate
     $gccMm = ($gccVersion -split '\.')[0..1] -join '.'
     if ($pgo -and $gccMm -ne $PgoGcc) { Warn "devkitA64 GCC ${gccVersion}: the PGO profile is from GCC $PgoGcc.x, so this build goes without it (slower)."; $pgo = $false }
     if ($pgo -and -not (Get-ChildItem (Join-Path $repo 'pgo') -Filter '*.gcda' -ErrorAction SilentlyContinue)) { Warn 'no pgo\*.gcda: building without the PGO profile'; $pgo = $false }
@@ -615,6 +617,8 @@ if (-not (IsDone 'switch')) {
         "-DPYTHON_EXECUTABLE=$py", "-DPython3_EXECUTABLE=$py",
         '-DBANJO_GEN_R1_LOCAL=ON', '-DBANJO_GEN_LR_WRITE_SAME=ON', '-DBANJO_SWITCH_LTO=ON', "-DBANJO_SWITCH_LTO_JOBS=$Jobs")
     if ($pgo) { $cfg += '-DBANJO_PGO=use' }
+    # Step 1 of a new PGO profile: the instrumented NRO (no LTO; GCC instruments before the inliner), docs/native/pgo.md.
+    if ($PgoGenerate) { $cfg = @($cfg | ForEach-Object { if ($_ -eq '-DBANJO_SWITCH_LTO=ON') { '-DBANJO_SWITCH_LTO=OFF' } else { $_ } }) + '-DBANJO_PGO=generate'; Note 'instrumented build for a new PGO profile (BANJO_PGO=generate, no LTO)' }
     if ($Icon) { $cfg += "-DFFXIII2_NRO_ICON=$($iconJpg.Replace('\', '/'))" } else { $cfg += '-DFFXIII2_NRO_ICON=' }
     RunOk 'configuring the Switch build' (Join-Path $logDir 'switch_configure.log') $cmake $cfg
     # GCC runs the link-time optimisation's partitions in parallel only through GNU make (else: "using serial
