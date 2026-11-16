@@ -149,10 +149,14 @@ REXCVAR_DEFINE_STRING(ffns_ui_post_ps, "AEAFDCD8198EDD3F", "FFNS/Graphics",
 // The same for a frame without the composite whose UI target starts at its first draw into the screen's surface
 // (UiMenuFrameWantedLocked): the Live Trigger screen (2026-11-16 trace: tone map 1429E4E5, B32FA7CD, 8EFE293D, the copy
 // DABFE170 and the blur AEAFDCD8 into the screen's surface before its text) stays at the render height until its text.
-REXCVAR_DEFINE_STRING(ffns_ui_menu_post_ps, "1429E4E50D5FBDDE,B32FA7CD13543D57,8EFE293DE1A50FA3,DABFE170B1431EDD,AEAFDCD8198EDD3F",
+REXCVAR_DEFINE_STRING(ffns_ui_menu_post_ps, "1429E4E50D5FBDDE,B32FA7CD13543D57,8EFE293DE1A50FA3,AEAFDCD8198EDD3F",
                       "FFNS/Graphics",
                       "ffns_ui_native, frames without FF's composite: pixel shaders (hex, comma-separated) whose draws "
                       "into the screen's surface do not start its 1280x720 target");
+// Shaders that are such an effect only after one of the list above in the same frame: the copy DABFE170 also draws a
+// 2D screen's whole layer into the screen's surface (the load screen's text went to 612 lines with it in the list).
+REXCVAR_DEFINE_STRING(ffns_ui_menu_post_ps_after, "DABFE170B1431EDD", "FFNS/Graphics",
+                      "ffns_ui_native: like ffns_ui_menu_post_ps, but only after one of those in the same frame");
 REXCVAR_DECLARE(bool, sa2_renut_neon_compare);  // sa2-nx (2026-10-20): backend/queued.cpp
 
 uint32_t Ffxiii2DeclarationRecord(uint32_t guest_declaration);  // ffxiii2-nx: d3d/hooks/shader.cpp
@@ -1324,9 +1328,18 @@ std::vector<uint64_t> HexList(const std::string &text) {
   return v;
 }
 
+uint64_t g_ui_menu_post_frame = UINT64_MAX;  // the frame whose UI target start a listed effect left to a later draw
+
 bool UiMenuPostPs(uint64_t ps_hash) {
   static const std::vector<uint64_t> list = HexList(REXCVAR_GET(ffns_ui_menu_post_ps));
-  return ps_hash && std::find(list.begin(), list.end(), ps_hash) != list.end();
+  static const std::vector<uint64_t> after = HexList(REXCVAR_GET(ffns_ui_menu_post_ps_after));
+  if (!ps_hash)
+    return false;
+  if (std::find(list.begin(), list.end(), ps_hash) != list.end()) {
+    g_ui_menu_post_frame = UiFrameSerialLocked();
+    return true;
+  }
+  return g_ui_menu_post_frame == UiFrameSerialLocked() && std::find(after.begin(), after.end(), ps_hash) != after.end();
 }
 
 bool UiPostPs(uint64_t ps_hash) {
