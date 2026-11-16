@@ -146,6 +146,13 @@ REXCVAR_DEFINE_BOOL(sa2_renut_lean_diagnostics, true, "SA2/Renderer",
 REXCVAR_DEFINE_STRING(ffns_ui_post_ps, "AEAFDCD8198EDD3F", "FFNS/Graphics",
                       "ffns_ui_native: pixel shaders (hex, comma-separated) of full-screen effects drawn after FF's "
                       "composite that stay at the render height; the scale to 1280x720 waits for the next other draw");
+// The same for a frame without the composite whose UI target starts at its first draw into the screen's surface
+// (UiMenuFrameWantedLocked): the Live Trigger screen (2026-11-16 trace: tone map 1429E4E5, B32FA7CD, 8EFE293D, the copy
+// DABFE170 and the blur AEAFDCD8 into the screen's surface before its text) stays at the render height until its text.
+REXCVAR_DEFINE_STRING(ffns_ui_menu_post_ps, "1429E4E50D5FBDDE,B32FA7CD13543D57,8EFE293DE1A50FA3,DABFE170B1431EDD,AEAFDCD8198EDD3F",
+                      "FFNS/Graphics",
+                      "ffns_ui_native, frames without FF's composite: pixel shaders (hex, comma-separated) whose draws "
+                      "into the screen's surface do not start its 1280x720 target");
 REXCVAR_DECLARE(bool, sa2_renut_neon_compare);  // sa2-nx (2026-10-20): backend/queued.cpp
 
 uint32_t Ffxiii2DeclarationRecord(uint32_t guest_declaration);  // ffxiii2-nx: d3d/hooks/shader.cpp
@@ -1302,6 +1309,26 @@ HostSurface *g_ui_defer = nullptr;
 uint64_t g_ui_defer_generation = 0;
 uint64_t g_ui_defer_frame = 0;
 
+std::vector<uint64_t> HexList(const std::string &text) {
+  std::vector<uint64_t> v;
+  size_t at = 0;
+  while (at < text.size()) {
+    size_t end = text.find(',', at);
+    if (end == std::string::npos)
+      end = text.size();
+    const std::string item = text.substr(at, end - at);
+    if (!item.empty())
+      v.push_back(std::strtoull(item.c_str(), nullptr, 16));
+    at = end + 1;
+  }
+  return v;
+}
+
+bool UiMenuPostPs(uint64_t ps_hash) {
+  static const std::vector<uint64_t> list = HexList(REXCVAR_GET(ffns_ui_menu_post_ps));
+  return ps_hash && std::find(list.begin(), list.end(), ps_hash) != list.end();
+}
+
 bool UiPostPs(uint64_t ps_hash) {
   static const std::vector<uint64_t> list = [] {
     std::vector<uint64_t> v;
@@ -1357,7 +1384,7 @@ void StartUiDeferred(const GuestDevice &device, uint64_t ps_hash) {
 // (surfaces.h, UiMenuFrameWantedLocked). At the draw's or clear's entry, before anything of it is bound: the pass
 // binds its own pipeline, sets and buffers.
 void SyncBound(VideoState &s);
-void StartUiMenuFrame(const GuestDevice &device) {
+void StartUiMenuFrame(const GuestDevice &device, uint64_t ps_hash = 0) {
   const bool layer = UiMenuLayerPendingLocked();
   if (!layer && !UiMenuFramePendingLocked())
     return;
@@ -1371,8 +1398,8 @@ void StartUiMenuFrame(const GuestDevice &device) {
     g_bound.viewport_set = false;
     return;
   }
-  if (!color || !UiMenuFrameWantedLocked(color) || !Video::EnsureCommandListLocked())
-    return;
+  if (!color || !UiMenuFrameWantedLocked(color) || UiMenuPostPs(ps_hash) || !Video::EnsureCommandListLocked())
+    return;  // 2026-11-16 (ffns_ui_menu_post_ps): a listed effect leaves the start to the next draw
   SyncBound(State());
   if (UiScaleMenuFrameLocked(color)) {
     g_bound.framebuffer = nullptr;
@@ -4468,10 +4495,14 @@ bool DrawStateLocked(const u8 *device_state, const DrawCall &call, const ReplayC
   const GuestDevice device(device_state);
   if (!device.valid())
     return (Ffxiii2DrawExit(0, call, device_state), false);
-  StartUiMenuFrame(device);  // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native): before anything is bound
-  if (g_ui_defer) {  // 2026-11-16, ffns_ui_post_ps
-    const auto *dps = FindShaderLocked(device.U32(d3d::kDeviceOffsetPixelShader), RecordKind::PixelShader);
-    StartUiDeferred(device, dps ? dps->hash : 0);
+  {  // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native): before anything is bound
+    const bool want_ps = g_ui_defer || UiMenuFramePendingLocked();  // 2026-11-16, ffns_ui_post_ps / _menu_post_ps
+    const auto *dps = want_ps ? FindShaderLocked(device.U32(d3d::kDeviceOffsetPixelShader), RecordKind::PixelShader)
+                              : nullptr;
+    const uint64_t dps_hash = dps ? dps->hash : 0;
+    StartUiMenuFrame(device, dps_hash);
+    if (g_ui_defer)
+      StartUiDeferred(device, dps_hash);
   }
 
   const u32 vs_va = device.U32(d3d::kDeviceOffsetVertexShader);
