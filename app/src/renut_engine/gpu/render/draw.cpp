@@ -153,10 +153,11 @@ REXCVAR_DEFINE_STRING(ffns_ui_menu_post_ps, "1429E4E50D5FBDDE,B32FA7CD13543D57,8
                       "FFNS/Graphics",
                       "ffns_ui_native, frames without FF's composite: pixel shaders (hex, comma-separated) whose draws "
                       "into the screen's surface do not start its 1280x720 target");
-// Shaders that are such an effect only after one of the list above in the same frame: the copy DABFE170 also draws a
-// 2D screen's whole layer into the screen's surface (the load screen's text went to 612 lines with it in the list).
+// Shaders that are such an effect only in a frame that drew 3D (a draw with a depth target) before: the copy DABFE170
+// also draws a 2D screen's whole layer into the screen's surface (the load screen's text went to 612 lines with it in
+// the list), and in the Live Trigger it comes before the listed effects.
 REXCVAR_DEFINE_STRING(ffns_ui_menu_post_ps_after, "DABFE170B1431EDD", "FFNS/Graphics",
-                      "ffns_ui_native: like ffns_ui_menu_post_ps, but only after one of those in the same frame");
+                      "ffns_ui_native: like ffns_ui_menu_post_ps, but only in a frame that drew with a depth target");
 REXCVAR_DECLARE(bool, sa2_renut_neon_compare);  // sa2-nx (2026-10-20): backend/queued.cpp
 
 uint32_t Ffxiii2DeclarationRecord(uint32_t guest_declaration);  // ffxiii2-nx: d3d/hooks/shader.cpp
@@ -1328,17 +1329,15 @@ std::vector<uint64_t> HexList(const std::string &text) {
   return v;
 }
 
-uint64_t g_ui_menu_post_frame = UINT64_MAX;  // the frame whose UI target start a listed effect left to a later draw
+uint64_t g_ui_menu_post_frame = UINT64_MAX;  // the frame that drew with a depth target (3D)
 
 bool UiMenuPostPs(uint64_t ps_hash) {
   static const std::vector<uint64_t> list = HexList(REXCVAR_GET(ffns_ui_menu_post_ps));
   static const std::vector<uint64_t> after = HexList(REXCVAR_GET(ffns_ui_menu_post_ps_after));
   if (!ps_hash)
     return false;
-  if (std::find(list.begin(), list.end(), ps_hash) != list.end()) {
-    g_ui_menu_post_frame = UiFrameSerialLocked();
+  if (std::find(list.begin(), list.end(), ps_hash) != list.end())
     return true;
-  }
   return g_ui_menu_post_frame == UiFrameSerialLocked() && std::find(after.begin(), after.end(), ps_hash) != after.end();
 }
 
@@ -4509,6 +4508,8 @@ bool DrawStateLocked(const u8 *device_state, const DrawCall &call, const ReplayC
   if (!device.valid())
     return (Ffxiii2DrawExit(0, call, device_state), false);
   {  // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native): before anything is bound
+    if (device.U32(d3d::kDeviceOffsetDepthStencil))
+      g_ui_menu_post_frame = UiFrameSerialLocked();  // 2026-11-16: this frame draws 3D (ffns_ui_menu_post_ps_after)
     const bool want_ps = g_ui_defer || UiMenuFramePendingLocked();  // 2026-11-16, ffns_ui_post_ps / _menu_post_ps
     const auto *dps = want_ps ? FindShaderLocked(device.U32(d3d::kDeviceOffsetPixelShader), RecordKind::PixelShader)
                               : nullptr;
