@@ -50,6 +50,8 @@ void QueueFenceCompletion(u32 completion_va, u32 fence, uint64_t after_callback)
 // with CallbacksRun, which writes the fence completions that waited for it.
 void QueueCallbackMarker(uint64_t seq);
 uint64_t CallbacksReached();
+// FFXIII-2-NX (2026-11-16, from tw2de_nx): the number of the item the render thread is running (render thread only).
+uint64_t ItemSerial();
 void CallbacksRun(uint64_t seq);
 
 // Waits up to 'timeout' for the render thread to complete another fence or

@@ -163,6 +163,12 @@ REXCVAR_DEFINE_BOOL(ffns_skip_inert_draws, true, "FFNS/Graphics",
                     "Renut's renderer (from renut_nx_ultimate_base / tw2de_nx): draws that can write nothing (no colour "
                     "channel, no depth write, no stencil operation, no memory export) are not drawn. Same pixels")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+// FFXIII-2-NX (2026-11-16, tw2de_nx's tw2de_repeat_draw_fast): see RepeatDraw.
+REXCVAR_DEFINE_BOOL(ffns_repeat_draw_fast, true, "FFNS/Graphics",
+                    "Renut's renderer (from tw2de_nx): a draw that only repeats the draw before it with other float "
+                    "constants pushes its constants and issues the same draw call, without the rest of the draw's work. "
+                    "The same commands in the same order")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DECLARE(bool, sa2_renut_neon_compare);  // sa2-nx (2026-10-20): backend/queued.cpp
 
 uint32_t Ffxiii2DeclarationRecord(uint32_t guest_declaration);  // ffxiii2-nx: d3d/hooks/shader.cpp
@@ -4544,6 +4550,28 @@ uint64_t g_ffns_inert_skipped = 0;
   return true;
 }
 
+// FFXIII-2-NX (2026-11-16, from tw2de_nx's tw2de_repeat_draw_fast, its 2026-11-13). A draw that repeats the draw
+// before it (same mesh, shaders, textures and state) with only float constants changed needs none of DrawStateLocked's
+// work but its float constants and the draw call: what the last plain draw recorded is still bound. Taken as a repeat
+// only when the delta chain says it follows that draw directly with no device chunk changed (only float constants), its
+// vertex group 0 was written (c0-c3), its DrawCall is the same, no other item ran on the render thread in between
+// (render_thread::ItemSerial) and nothing rebound the framebuffer or pipeline since (this port's UI target passes run
+// at a draw's entry). Armed by a plain pushed-constants draw only (no memexport, tessellation, UP data, point lists,
+// profile spans, draw log, FF's composite or the UI target's effects).
+struct RepeatDraw {
+  bool armed = false;
+  uint64_t seq = 0, serial = 0, served = 0;
+  DrawCall call;
+  plume::RenderCommandList *cmd = nullptr;
+  const u32 *vs_used = nullptr, *ps_used = nullptr;
+  const ShaderCacheEntry *vs_entry = nullptr, *ps_entry = nullptr;
+  bool indexed = false, depth_counts = false;
+  u32 count = 0, instances = 0, color_count = 0;
+  HostSurface *colors[d3d::kMaxRenderTargets] = {};
+  HostSurface *depth = nullptr;
+};
+RepeatDraw g_repeat;
+
 bool DrawStateLocked(const u8 *device_state, const DrawCall &call, const ReplayConstants *replay) {
   {  // FFXIII-2-NX (2026-11-16, ffns_skip_inert_draws)
     static const bool skip_inert = REXCVAR_GET(ffns_skip_inert_draws);
@@ -4574,6 +4602,45 @@ bool DrawStateLocked(const u8 *device_state, const DrawCall &call, const ReplayC
     if (g_ui_defer)
       StartUiDeferred(device, dps_hash);
   }
+
+#if defined(PLUME_DEKO3D)
+  if (g_repeat.armed) {  // FFXIII-2-NX (2026-11-16, ffns_repeat_draw_fast)
+    RepeatDraw &r = g_repeat;
+    const ChainHint &hint = g_chain_hint;
+    const uint64_t serial = render_thread::ItemSerial();
+    if (replay && replay->vs_dirty && hint.seq == r.seq + 1 && !(hint.changed[0] | hint.changed[1]) &&
+        serial == r.serial + 1 && (*replay->vs_dirty >> 63) != 0 && s.command_list == r.cmd &&
+        g_bound.framebuffer && g_bound.pipeline && call.primitive == r.call.primitive &&
+        call.indexed == r.call.indexed && call.start_vertex == r.call.start_vertex && call.count == r.call.count &&
+        call.base_vertex == r.call.base_vertex && call.start_index == r.call.start_index && !call.tessellation &&
+        !call.up_vertices && !call.up_indices) {
+      const FloatConstants vs_constants = DrawFloatConstants(device_state, replay, false);
+      const FloatConstants ps_constants = DrawFloatConstants(device_state, replay, true);
+      PushFloatConstants(r.cmd, vs_constants, r.vs_used, g_bound.pushed_vs, r.vs_entry, g_pushed_buffers.address);
+      PushFloatConstants(r.cmd, ps_constants, r.ps_used, g_bound.pushed_ps, r.ps_entry,
+                         g_pushed_buffers.address + kPushedFloatStride);
+      g_bound.vs_constants.replay = 0;
+      g_bound.ps_constants.replay = 0;
+      banjo::renut_gpu::CountPushedConstants(1, 2);
+      for (u32 c = 0; c < r.color_count; ++c)
+        ++r.colors[c]->writes;
+      if (r.depth_counts)
+        ++r.depth->writes;
+      Video::NoteDrawLocked();
+      if (r.indexed)
+        r.cmd->drawIndexedInstanced(r.count, r.instances, 0, 0, 0);
+      else
+        r.cmd->drawInstanced(r.count, r.instances, 0, 0);
+      r.seq = hint.seq;
+      r.serial = serial;
+      if ((++r.served & 0x3FFFF) == 1)
+        RGPU_INFO("[repeat] {} draws served as repeats of the draw before them so far (ffns_repeat_draw_fast)",
+                  r.served);
+      return true;
+    }
+    r.armed = false;
+  }
+#endif
 
   const u32 vs_va = device.U32(d3d::kDeviceOffsetVertexShader);
   auto *vs = FindShaderLocked(vs_va, RecordKind::VertexShader);
@@ -5499,6 +5566,38 @@ bool DrawStateLocked(const u8 *device_state, const DrawCall &call, const ReplayC
                 sc.memexport_streams[0][2], sc.tessellation[0], sc.tessellation[1], sc.tessellation[2],
                 sc.tessellation[3]);
   }
+#if defined(PLUME_DEKO3D)
+  {  // FFXIII-2-NX (2026-11-16, ffns_repeat_draw_fast): this draw as the one a repeat can follow
+    static const bool repeat_on = REXCVAR_GET(ffns_repeat_draw_fast);
+    static const bool repeat_diag = REXCVAR_GET(ffxiii2_diag_rt_start_s) > 0;
+    RepeatDraw &r = g_repeat;
+    r.armed = false;
+    if (repeat_on && pushed && replay && replay->vs_dirty && chain.seq && !export_count && !call.tessellation &&
+        !call.up_vertices && !call.up_indices && call.primitive != kPointList && !gpu_profile::Timed() && !draw_log &&
+        !repeat_diag && !(ps && (CompositePs(ps->hash) || UiPostPs(ps->hash) || UiMenuPostPs(ps->hash))) &&
+        targets.depth && targets.color_count) {
+      r.armed = true;
+      r.seq = chain.seq;
+      r.serial = render_thread::ItemSerial();
+      r.call = call;
+      r.cmd = cmd;
+      r.vs_used = vs_used;
+      r.ps_used = ps_used;
+      r.vs_entry = vs->entry;
+      r.ps_entry = ps ? ps->entry : nullptr;
+      r.indexed = geometry.indexed;
+      r.count = geometry.indexed ? geometry.index_count : geometry.vertex_count;
+      r.instances = geometry.instance_count;
+      r.color_count = 0;
+      for (u32 c = 0; c < targets.color_count && c < key.color_count; ++c)
+        if ((key.color_mask >> (4 * c)) & 0xF)
+          r.colors[r.color_count++] = targets.colors[c];
+      const u32 repeat_dc = key.depth_control;
+      r.depth = targets.depth;
+      r.depth_counts = ((repeat_dc & 2) && (repeat_dc & 4)) || ((repeat_dc & 1) && ((key.stencil_ref_mask >> 16) & 0xFF) != 0);
+    }
+  }
+#endif
   if (geometry.indexed) {
     SetIndexBuffer(cmd, geometry.index_view);
     // banjo-nx: instanced for a tessellation grid (banjo_gpu_tess_grid); 1 for every other indexed draw.

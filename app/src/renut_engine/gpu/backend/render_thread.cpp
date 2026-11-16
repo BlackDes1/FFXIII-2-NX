@@ -200,7 +200,12 @@ Clock::time_point g_item_start{};
 Clock::duration g_waited{};
 thread_local bool t_render_thread = false;
 
+// FFXIII-2-NX (2026-11-16, from tw2de_nx's tw2de_repeat_draw_fast): counts the items run, so a draw can tell that
+// nothing else ran since the draw before it (ItemSerial).
+uint64_t g_item_serial = 0;
+
 void Execute(Item &item) {
+  ++g_item_serial;
   if (item.locked) {
     std::lock_guard lock(State().mutex);
     item.work();
@@ -716,5 +721,7 @@ void Stop() {
   g_work_cv.notify_all();
   g_done_cv.notify_all();
 }
+
+uint64_t ItemSerial() { return g_item_serial; }  // FFXIII-2-NX (2026-11-16, repeat draws)
 
 } // namespace renut::gpu::render_thread
