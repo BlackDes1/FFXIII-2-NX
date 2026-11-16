@@ -137,6 +137,8 @@ void RedirectToUiSurfaceLocked();
 HostSurface *UiDepthSurfaceLocked(HostSurface *scene_depth);
 void RedirectDepthToUiLocked();
 bool UiRedirectedLocked();
+// +1 at every Swap (2026-11-16: a deferred UI upscale ends with its frame).
+uint64_t UiFrameSerialLocked();
 // The frame's final composite was drawn.
 void NoteCompositeLocked();
 // A whole-screen colour resolve's source (the last one of a frame is the front buffer's).

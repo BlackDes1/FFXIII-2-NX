@@ -78,6 +78,7 @@ UiTarget g_ui_menu;
 bool g_composite_seen = false;
 uint32_t g_frames_without_composite = kMenuFrames;
 bool g_ui_native_frame = false;  // UiNativeWanted, latched at the Swap
+uint64_t g_ui_frame_serial = 0;  // +1 at every Swap (UiFrameSerialLocked)
 const HostSurface *g_frame_resolve_source = nullptr;  // this frame's last whole-screen colour resolve
 uint64_t g_frame_resolve_generation = 0;
 const HostSurface *g_screen_source = nullptr;  // the frame before's
@@ -577,6 +578,7 @@ void LatchResolutionScaleLocked() {
   }
   g_frames_without_composite = g_composite_seen ? 0 : std::min(g_frames_without_composite + 1, kMenuFrames);
   g_composite_seen = false;
+  ++g_ui_frame_serial;  // 2026-11-16: ends a deferred UI upscale (render/draw.cpp, ffns_ui_post_ps)
   g_screen_source = g_frame_resolve_source;
   g_screen_source_generation = g_frame_resolve_generation;
   g_frame_resolve_source = nullptr;
@@ -714,6 +716,8 @@ RenderScale UiScale() { return RenderScale{}; }
 bool UiNativeWanted() { return g_ui_native_frame; }
 
 bool UiRedirectedLocked() { return g_ui.redirect; }
+
+uint64_t UiFrameSerialLocked() { return g_ui_frame_serial; }
 
 void NoteCompositeLocked() { g_composite_seen = true; }
 

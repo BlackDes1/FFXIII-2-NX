@@ -138,6 +138,14 @@ REXCVAR_DEFINE_BOOL(sa2_renut_lean_diagnostics, true, "SA2/Renderer",
                     "draw and stream dumps' checks are made once instead of a call per draw")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
+// FFXIII-2-Native-Switch (2026-11-16, GPU profile of the Live Trigger screen): with ffns_ui_native, FF's own full-screen
+// effects drawn into the composite's target after the composite (the Live Trigger's blur, PS AEAFDCD8198EDD3F: 8.8 ms
+// at 1280x720) ran at the display's resolution. Their draws keep the scene's render height: the composite's image is
+// scaled into the UI target at the first OTHER draw or clear into that target in the frame (text, HUD), not at the
+// composite. Empty: at the composite, as before.
+REXCVAR_DEFINE_STRING(ffns_ui_post_ps, "AEAFDCD8198EDD3F", "FFNS/Graphics",
+                      "ffns_ui_native: pixel shaders (hex, comma-separated) of full-screen effects drawn after FF's "
+                      "composite that stay at the render height; the scale to 1280x720 waits for the next other draw");
 REXCVAR_DECLARE(bool, sa2_renut_neon_compare);  // sa2-nx (2026-10-20): backend/queued.cpp
 
 uint32_t Ffxiii2DeclarationRecord(uint32_t guest_declaration);  // ffxiii2-nx: d3d/hooks/shader.cpp
@@ -1286,6 +1294,63 @@ void DropSmallerDepth(const GuestDevice &device, Targets &t, uint64_t vs_hash, u
                 ps_hash, dc);
   }
   t.depth = nullptr;
+}
+
+void SyncBound(VideoState &s);
+// ffns_ui_post_ps (2026-11-16): the composite's target whose scale to the UI target waits (nullptr: none), its frame.
+HostSurface *g_ui_defer = nullptr;
+uint64_t g_ui_defer_generation = 0;
+uint64_t g_ui_defer_frame = 0;
+
+bool UiPostPs(uint64_t ps_hash) {
+  static const std::vector<uint64_t> list = [] {
+    std::vector<uint64_t> v;
+    const std::string text = REXCVAR_GET(ffns_ui_post_ps);
+    size_t at = 0;
+    while (at < text.size()) {
+      size_t end = text.find(',', at);
+      if (end == std::string::npos)
+        end = text.size();
+      const std::string item = text.substr(at, end - at);
+      if (!item.empty())
+        v.push_back(std::strtoull(item.c_str(), nullptr, 16));
+      at = end + 1;
+    }
+    return v;
+  }();
+  return std::find(list.begin(), list.end(), ps_hash) != list.end();
+}
+
+bool UiPostListed() {
+  static const bool any = !REXCVAR_GET(ffns_ui_post_ps).empty();
+  return any;
+}
+
+// At a draw's (ps_hash) or a clear's (ps_hash 0) entry, before anything of it is bound: a deferred scale runs when the
+// call goes into the composite's target and is not one of the listed effects.
+void StartUiDeferred(const GuestDevice &device, uint64_t ps_hash) {
+  if (!g_ui_defer)
+    return;
+  if (g_ui_defer_frame != UiFrameSerialLocked()) {
+    g_ui_defer = nullptr;  // the frame ended without another draw into it: it stays at the render height
+    return;
+  }
+  if (ps_hash && UiPostPs(ps_hash))
+    return;
+  const u32 va = device.U32(d3d::kDeviceOffsetRenderTargets);
+  HostSurface *color = va ? GetHostSurfaceLocked(va) : nullptr;
+  if (!color || color != g_ui_defer || color->generation != g_ui_defer_generation)
+    return;
+  g_ui_defer = nullptr;
+  if (!Video::EnsureCommandListLocked())
+    return;
+  SyncBound(State());
+  if (UiScaleAfterCompositeLocked(color)) {
+    g_bound.framebuffer = nullptr;
+    g_bound.pipeline = nullptr;
+    g_bound.layout = false;
+    g_bound.viewport_set = false;
+  }
 }
 
 // ffns_ui_native: a frame of 2D screens takes the UI target from its first draw or clear into the screen's surface
@@ -4404,6 +4469,10 @@ bool DrawStateLocked(const u8 *device_state, const DrawCall &call, const ReplayC
   if (!device.valid())
     return (Ffxiii2DrawExit(0, call, device_state), false);
   StartUiMenuFrame(device);  // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native): before anything is bound
+  if (g_ui_defer) {  // 2026-11-16, ffns_ui_post_ps
+    const auto *dps = FindShaderLocked(device.U32(d3d::kDeviceOffsetPixelShader), RecordKind::PixelShader);
+    StartUiDeferred(device, dps ? dps->hash : 0);
+  }
 
   const u32 vs_va = device.U32(d3d::kDeviceOffsetVertexShader);
   auto *vs = FindShaderLocked(vs_va, RecordKind::VertexShader);
@@ -5364,10 +5433,18 @@ bool DrawStateLocked(const u8 *device_state, const DrawCall &call, const ReplayC
   if (ps && targets.color_count == 1 && !export_count && CompositePs(ps->hash)) {
     const bool smaa = SmaaAfterPs(ps->hash) && SmaaRunLocked(targets.colors[0]);
     bool scaled = false;
-    if (UiNativeWanted())
-      scaled = UiScaleAfterCompositeLocked(targets.colors[0]);
-    else
+    if (UiNativeWanted() && UiPostListed()) {
+      // 2026-11-16 (ffns_ui_post_ps): the scale waits for the frame's next draw or clear into this target that is
+      // not a listed effect (StartUiDeferred).
       NoteCompositeLocked();
+      g_ui_defer = targets.colors[0];
+      g_ui_defer_generation = targets.colors[0]->generation;
+      g_ui_defer_frame = UiFrameSerialLocked();
+    } else if (UiNativeWanted()) {
+      scaled = UiScaleAfterCompositeLocked(targets.colors[0]);
+    } else {
+      NoteCompositeLocked();
+    }
     if (smaa || scaled) {
       g_bound.framebuffer = nullptr;
       g_bound.pipeline = nullptr;
@@ -5976,6 +6053,7 @@ void ClearStateLocked(const u8 *device_state, u32 flags, const ClearRect *rect,
     return;
   static const bool rt_log = REXCVAR_GET(ffxiii2_diag_rt_start_s) > 0;
   StartUiMenuFrame(device);  // FFXIII-2-Native-Switch (2026-11-12, ffns_ui_native)
+  StartUiDeferred(device, 0);  // 2026-11-16, ffns_ui_post_ps
   Targets targets;
   if (!GatherTargets(device, targets))
     return;
