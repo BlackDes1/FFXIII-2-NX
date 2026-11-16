@@ -198,3 +198,25 @@ bodies; fused vmaddfp; draw-distance cuts in S1b; conclusions from Ryujinx; conc
 [30fps-steps123-2026-11-10.md](30fps-steps123-2026-11-10.md) · [refs-20261110-review.md](refs-20261110-review.md) ·
 [switchwaker-review.md](switchwaker-review.md) · [session-2026-11-12-13.md](session-2026-11-12-13.md) ·
 [rendering-playbook.md](rendering-playbook.md) · [rendering.md](rendering.md) · [architecture.md](architecture.md) · [progress-log.md](progress-log.md)
+
+## 11. 2026-11-16: renut-ultimate base ports, PGO re-training, Live Trigger at 30
+
+Measured on the console, Save Data 01 (New Bodhum, night), standing, alternating runs (ABBA), GPU 537 MHz. The CPU ran at
+1785 MHz in all runs: a clock tool on the console (hoc-clk / sys-clk) sets it and the game's own pin gives way after 20 s.
+
+| change | result | verdict |
+|---|---|---|
+| Batch 1: the base's SDK ports (event waits on an address, handle lookups off the global lock, clock short read, yield backoff, XMA cache v2, thread stack pool, ...) + batch 2: Renut object lookups without locks (port 47), ring cleaner take-over (port 80) | main thread 62.9 -> 61.2 % busy (-3 %), all cores 166 -> 157 % (-5 %); fps at the 30 cap either way | kept |
+| Batch 3: the base's exact code-generation passes (float loads, byte swaps, store cards, liveness, stack forwarding), old PGO profile | -7 % fps (27.5 vs 29.7): the profile no longer matches the code | dropped |
+| Batch 3 + a new PGO profile (instrumented build `build_switch.ps1 -PgoGenerate`, 300 s field + event, `tools/pgo_merge.py`) | 29.67 vs 29.89 fps, main thread equal within noise | dropped (no gain) |
+| `ffns_ui_post_ps` / `ffns_ui_menu_post_ps` (+ `_after`): FF's full-screen effects drawn into the screen's image after the composite (or, in frames without one, before their text) stay at the render height; the 1280x720 UI target starts at the next other draw | Live Trigger: GPU 36.1 -> 31.6 ms, 27.4 -> 30.00 fps (blur AEAFDCD8 8.8 ms at 720p -> 6.3 ms at 612p); text, load screen, field HUD unchanged | kept |
+
+Findings:
+- At 1785 MHz the heavy views are GPU-bound, not CPU-bound (heavy-scene stack profile: the main thread never above 76 %).
+  CPU work (job wait loop `sub_82886578`, effect sync) gains ~0 there now.
+- GPU per-pass profile (`renut_gpu_profile = 10`, `banjo_renut_diag_gpu_shaders = true`; `renut_gpu_profile_serial =
+  true` for exact spans): the non-serial profile bills waits to the next resolve.
+- The Live Trigger has no scene composite: the 2D-screen path (UiMenuFrameWantedLocked) started the UI target at its
+  first draw. The copy shader DABFE170 also draws whole 2D screens, so it is listed only when this frame or the one
+  before drew with a depth target (the Live Trigger's frame starts with it, before its 3D).
+- Depth hand-over for non-shadow images: nothing to win (only the two shadow maps used it on the field).
