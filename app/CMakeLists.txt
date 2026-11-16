@@ -44,6 +44,11 @@ if(REXGLUE_PLATFORM_SWITCH AND NOT TARGET renut_codegen)
     add_custom_target(renut_codegen)
 endif()
 
+# renut-ultimate (2026-11-07, port 42): the SDK's libraries in each Switch build folder (sdk/CMakeLists.txt), so they are
+# built with each folder's LTO and PGO options (BANJO_SWITCH_SDK_OPT below).
+if(REXGLUE_PLATFORM_SWITCH)
+    set(REXGLUE_OUTPUT_IN_BUILD ON CACHE BOOL "The SDK's libraries and tools in this build folder")
+endif()
 include(generated/rexglue.cmake)
 
 # banjo-nx (from sa2-nx): the optimised codegen. The build re-runs the generator by itself whenever an input in
@@ -556,6 +561,25 @@ if(REXGLUE_PLATFORM_SWITCH)
     set_property(CACHE BANJO_PGO PROPERTY STRINGS "" generate use)
     set(BANJO_PGO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../pgo" CACHE PATH "Folder of the PGO profile (.gcda files)")
     set(_banjo_opt_targets renut_recomp renut banjo_renut_gpu plume)
+    # renut-ultimate (2026-11-07, port 42): the SDK runtime (kernel calls, threads, the audio driver) and FFmpeg (XMA
+    # decoding) in the LTO and PGO too, their C and C++ only. Port 89 (sasrt-nx, 2026-11-12): the SDK's OBJECT libraries
+    # as well; four files stay out of LTO: threading_switch.cpp and switch_perf.cpp define --wrap's __wrap_ functions,
+    # exception_handler_switch.cpp and fiber_switch.cpp have top-level asm that names C symbols.
+    option(BANJO_SWITCH_SDK_OPT "The SDK runtime and FFmpeg in the Switch LTO and PGO (renut-ultimate port 42)" ON)
+    option(BANJO_SWITCH_SDK_OBJECT_OPT "The SDK's OBJECT libraries in the Switch LTO and PGO too (port 89)" ON)
+    set(_banjo_sdk_opt_targets)
+    set(_banjo_sdk_no_lto)
+    if(BANJO_SWITCH_SDK_OPT AND REXGLUE_OUTPUT_IN_BUILD)
+        set(_banjo_sdk_opt_targets rexruntime libavcodec libavutil)
+        if(BANJO_SWITCH_SDK_OBJECT_OPT)
+            list(APPEND _banjo_sdk_opt_targets rexaudio rexcore rexfilesystem rexinput rexui)
+            set(_banjo_sdk_no_lto
+                "${CMAKE_CURRENT_SOURCE_DIR}/../sdk/src/core/threading_switch.cpp"
+                "${CMAKE_CURRENT_SOURCE_DIR}/../sdk/src/ui/switch_perf.cpp"
+                "${CMAKE_CURRENT_SOURCE_DIR}/../sdk/src/core/exception_handler_switch.cpp"
+                "${CMAKE_CURRENT_SOURCE_DIR}/../sdk/src/core/fiber_switch.cpp")
+        endif()
+    endif()
     if(BANJO_SWITCH_LTO)
         set(_banjo_lto_compile -flto -fno-fat-lto-objects)
         set(_banjo_lto_link -flto=${BANJO_SWITCH_LTO_JOBS} -flto-partition=balanced -ffp-contract=off
@@ -570,8 +594,18 @@ if(REXGLUE_PLATFORM_SWITCH)
                 target_compile_definitions(${target} PRIVATE XXH_FORCE_MEMORY_ACCESS=0)
             endif()
         endforeach()
+        foreach(target ${_banjo_sdk_opt_targets})  # port 42 / 89
+            if(TARGET ${target})
+                target_compile_options(${target} PRIVATE "$<$<COMPILE_LANGUAGE:C,CXX>:${_banjo_lto_compile}>")
+                target_compile_definitions(${target} PRIVATE XXH_FORCE_MEMORY_ACCESS=0)
+            endif()
+        endforeach()
         target_link_options(renut PRIVATE ${_banjo_lto_link})
-        message(STATUS "banjo: Switch LTO (${BANJO_SWITCH_LTO_JOBS} jobs)")
+        if(_banjo_sdk_no_lto)  # port 89: after the targets' -flto, so it wins
+            set_property(SOURCE ${_banjo_sdk_no_lto} TARGET_DIRECTORY rexcore rexui APPEND PROPERTY COMPILE_OPTIONS
+                         -fno-lto)
+        endif()
+        message(STATUS "banjo: Switch LTO (${BANJO_SWITCH_LTO_JOBS} jobs; SDK targets: ${_banjo_sdk_opt_targets})")
     endif()
     get_filename_component(_banjo_pgo_dir "${BANJO_PGO_DIR}" ABSOLUTE)
     file(TO_NATIVE_PATH "${_banjo_pgo_dir}" _banjo_pgo_dir)
@@ -608,6 +642,11 @@ if(REXGLUE_PLATFORM_SWITCH)
         foreach(target ${_banjo_opt_targets})
             if(TARGET ${target})
                 target_compile_options(${target} PRIVATE ${_banjo_pgo})
+            endif()
+        endforeach()
+        foreach(target ${_banjo_sdk_opt_targets})  # port 42 / 89
+            if(TARGET ${target})
+                target_compile_options(${target} PRIVATE "$<$<COMPILE_LANGUAGE:C,CXX>:${_banjo_pgo}>")
             endif()
         endforeach()
         target_link_options(renut PRIVATE ${_banjo_pgo})
