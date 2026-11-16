@@ -37,6 +37,7 @@
 #include "renut_engine/gpu/banjo_renut_tuning.h"
 #include "renut_engine/gpu/banjo_renut_record.h"  // banjo-nx (package 28b): banjo_renut_record_worker
 #include <rex/frame_latency.h>  // banjo-nx (2026-10-20): the latency probe's "input -> GPU done"
+#include <rex/cvar.h>  // renut-ultimate port 80
 #if defined(PLUME_DEKO3D)
 #include <plume_deko3d.h>  // banjo-nx (2026-10-20, banjo_deko3d_latency_trim): fence copies
 #endif
@@ -75,6 +76,14 @@
 #include "host_shaders/texture_mip_ps.dxil.h"
 #include "host_shaders/resolve_copy_ps.dxil.h"
 #endif
+
+// sasrt-nx (2026-11-11, renut-ultimate port 80): a submit that needs the range the ring cleaner thread is cleaning cleans
+// it itself instead of waiting for that thread (lowest priority, kept off its core for 280-350 ms in SASRT's races).
+REXCVAR_DEFINE_BOOL(sasrt_ring_cleaner_take_over, true, "Banjo/Enhancements",
+                    "A submit that needs the range the ring cleaner thread is cleaning cleans it itself (a cache clean "
+                    "by address, repeatable) instead of waiting for the thread")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+
 
 namespace renut::gpu {
 
@@ -510,6 +519,16 @@ public:
       }
       if (working_ == 0 || working_ > ticket)
         return;
+      // sasrt-nx (2026-11-11, renut-ultimate port 80, sasrt_ring_cleaner_take_over): the range in progress cleaned here
+      // too (a cache clean by address is repeatable and safe on two cores); every range up to 'ticket' is then clean.
+      static const bool take_over = REXCVAR_GET(sasrt_ring_cleaner_take_over);
+      if (take_over) {
+        const UploadRing::Range r = working_range_;
+        lock.unlock();
+        Clean(r);
+        banjo::renut_gpu::CountKickSubmit(2);
+        return;
+      }
       render_thread::WaitScope wait;
       done_cv_.wait(lock, [&] { return working_ == 0 || working_ > ticket; });
     }
@@ -542,6 +561,7 @@ private:
       const Job job = queue_.front();
       queue_.pop_front();
       working_ = job.ticket;
+      working_range_ = job.range;  // port 80: a waiting submit may clean it too
       lock.unlock();
       Clean(job.range);
       banjo::renut_gpu::CountKickSubmit(1);
@@ -562,6 +582,7 @@ private:
   std::condition_variable cv_, done_cv_;
   std::deque<Job> queue_;
   uint64_t last_ticket_ = 0, working_ = 0;  // working_: the ticket of the range being cleaned, 0 for none
+  UploadRing::Range working_range_{};        // port 80: the range being cleaned (valid while working_ != 0)
   bool started_ = false;
 };
 

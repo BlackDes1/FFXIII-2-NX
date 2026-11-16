@@ -87,11 +87,14 @@ u32 AllocHeader(u32 size) {
   std::memset(host, 0, size);
   const u32 va = REX_KERNEL_MEMORY()->HostToGuestVirtual(host);
   std::lock_guard lock(g_owned_mutex);
-  g_owned_headers.insert(va);
+  if (g_owned_headers.insert(va).second)
+    records::MarkOwned(va, true);  // rr6-nx (2026-11-08, rr6_records_lockfree; renut-ultimate port 47)
   return va;
 }
 
 bool OwnsHeader(u32 va) {
+  if (const int fast = records::OwnedFast(va); fast >= 0)  // rr6-nx (2026-11-08, rr6_records_lockfree; port 47)
+    return fast != 0;
   std::lock_guard lock(g_owned_mutex);
   return g_owned_headers.count(va) != 0;
 }
@@ -101,6 +104,7 @@ void FreeHeader(u32 va) {
     std::lock_guard lock(g_owned_mutex);
     if (!g_owned_headers.erase(va))
       return;
+    records::MarkOwned(va, false);  // rr6-nx (2026-11-08, rr6_records_lockfree; port 47)
   }
   records::FreeRaw(GuestPtr<void>(va));
 }
