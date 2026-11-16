@@ -509,6 +509,13 @@ if ($store -and $From -notin @('shaders', 'cache') -and -not ((IsDone 'shaders')
         Copy-Item -Force (Join-Path $store 'deko3d_glsl_full.bin') (Join-Path $sd 'deko3d_glsl.bin')
         Copy-Item -Force (Join-Path $store 'deko3d_shaders.bin') (Join-Path $sd 'deko3d_shaders.bin')
         foreach ($f in @('deko3d_glsl_switch.cpp', 'shader_cache_switch.cpp')) { if (-not (Test-Path (Join-Path $pkgDir $f))) { throw "$f is missing in the store" } }
+        # The package's .cpp embeds deko3d_glsl.bin by the absolute path of the build that made it (.incbin): point it here.
+        $fwd = $pkgDir.Replace('\', '/')
+        foreach ($c in Get-ChildItem -LiteralPath $pkgDir -Filter '*.cpp') {
+            $t = [IO.File]::ReadAllText($c.FullName)
+            $t2 = [regex]::Replace($t, '(\.incbin \\")[^"\\]*/([^"\\/]+\.bin)(\\")', { param($m) $m.Groups[1].Value + $fwd + '/' + $m.Groups[2].Value + $m.Groups[3].Value })
+            if ($t2 -ne $t) { [IO.File]::WriteAllText($c.FullName, $t2) }
+        }
         Done 'shaders'; Done 'cache'
     } catch { Warn "the shader store could not be used ($($_.Exception.Message)): translating again" }
 }
