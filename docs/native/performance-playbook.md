@@ -220,3 +220,20 @@ Findings:
   first draw. The copy shader DABFE170 also draws whole 2D screens, so it is listed only when this frame or the one
   before drew with a depth target (the Live Trigger's frame starts with it, before its 3D).
 - Depth hand-over for non-shadow images: nothing to win (only the two shadow maps used it on the field).
+
+## 12. 2026-11-16/17: ultimate base CPU picks, tw2de_nx items (build 19)
+
+Console, stock clocks (CPU 1020 / GPU 460) unless noted; the user's save moved between runs, so scenes vary.
+
+| change | result | state |
+|---|---|---|
+| Port 120 `audio_xma_kick_without_lock` (toml A/B, 4 + 4 runs) | +0.4 fps, CPU equal: n.s. | default OFF |
+| Port 105 lock-free render queue (`dishonored_renut_lockfree_queue`) + ports 42/89 SDK runtime, OBJECT libs and FFmpeg in LTO/PGO (build 18) | no crash; main thread equal within noise | on |
+| tw2de_nx uam PressureSink (flags 2048 + 8192; uam `CompileBest` keeps per pixel shader the version with fewer register steps; cache tag `bnx5`) | 300 FF pixel shaders: 219 a register step better, 0 worse, 60.3 -> 52.6 registers (EDE8C88F 64 -> 49); console A/B not separable in the moving scene | on (`ffns_deko3d_uam_pressure`) |
+| `ffns_skip_inert_draws` (draws that write nothing) | ~0 draws in FF's field | on |
+| `ffns_repeat_draw_fast` (tw2de_nx repeat draws) | 0 draws served: its conditions never meet in this renderer | on, inert |
+| all of build 19's on vs off (same build, toml), standing 3 + 3 | 28.5 vs 28.0 fps, main thread -1.6 points, total CPU -5 points: within noise | build 19 shipped |
+
+Not useful here: tw2de_nx `msr_fences` (our generator emits no fences for mfmsr/mtmsrd), `vec_neon_forms` (a code-generation
+rewrite like batch 3). Open: a per-shader GPU timing A/B of PressureSink (`renut_gpu_profile`, `banjo_renut_diag_gpu_shaders`).
+
