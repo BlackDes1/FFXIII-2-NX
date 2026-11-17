@@ -251,6 +251,9 @@ This port stands on the work of many people. Thank you to:
 - **ChanseyIsTheBest** — katamari-nx (this port's base), renut-nx / banjo-nx (the Switch renderer, the DLC installer,
   the 2 MB code and memory blocks), sa2-nx, futari-nx, renut-nx-webinstaller, bejeweled3-nx and the Peggle 2 / Sonic &
   All-Stars Racing Transformed ports.
+- **ChanseyIsTheBest and contributors** — renut_nx_ultimate_base (the SDK and renderer ports of 2026-11-16: event waits
+  on an address, lock-free object lookups, the ring cleaner's take-over, the lock-free render queue, the SDK in LTO/PGO);
+  **recomp-nx** — tw2de_nx (uam's PressureSink, inert-draw skipping, the repeat-draw path).
 - **StevensND** — nfsmw-nx (the Switch layer of the SDK, the profiling and PGO method); **madelrandel-blip** —
   NFSMW Recompiled; **NebadasSwifty** — masseffect-nx.
 - **hedge-dev and contributors** — XenosRecomp (the shader translator), XenonRecomp, Unleashed Recompiled and its Switch
