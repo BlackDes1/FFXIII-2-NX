@@ -362,7 +362,6 @@
 828FB710 7 console samples, 40 instructions, 4 direct callees
 82961CA0 7 console samples, 244 instructions, 7 direct callees
 824C2C48 7 console samples, 8 instructions, 0 direct callees
-824D2BB8 7 console samples, 22 instructions, 2 direct callees
 82BD41E0 7 console samples, 118 instructions, 4 direct callees
 829F1440 7 console samples, 38 instructions, 5 direct callees
 822996A0 7 console samples, 42 instructions, 0 direct callees
@@ -560,7 +559,6 @@
 82297338 3 console samples, 150 instructions, 12 direct callees
 82A62430 3 console samples, 196 instructions, 14 direct callees
 82910538 3 console samples, 338 instructions, 19 direct callees
-824D2C10 3 console samples, 22 instructions, 2 direct callees
 82B9CC58 3 console samples, 10 instructions, 0 direct callees
 82AB2760 3 console samples, 96 instructions, 0 direct callees
 828A6C28 3 console samples, 26 instructions, 1 direct callees
