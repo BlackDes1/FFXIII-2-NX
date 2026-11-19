@@ -242,7 +242,7 @@ $tIcon.Add_TextChanged({ Show-Icon })
 $cmbMode.Add_SelectedIndexChanged({ Show-Icon })
 Show-Icon
 
-$gOut = Add-Group 'Output' 140
+$gOut = Add-Group 'Output' 168
 $tOut = Add-PathRow $gOut 0 'SD folder on this PC' (Pick $Out 'Out' (Join-Path $repo 'SD')) @('folder') 'Where the finished switch\ffxiii2-nx folder is made'
 $cbCard = New-Object System.Windows.Forms.CheckBox
 $cbCard.Text = 'Copy to the SD card:'
@@ -288,6 +288,14 @@ $cbTools.Location = New-Object System.Drawing.Point(10, 108)
 $cbTools.Size = New-Object System.Drawing.Size(560, 22)
 $tip.SetToolTip($cbTools, 'Faster next build, about 2.5 GB more on the disk')
 $gOut.Controls.Add($cbTools)
+$cbNro = New-Object System.Windows.Forms.CheckBox
+$cbNro.Text = 'Only build the NRO (skip the shader translation and cache: uses the shaders of your last full build)'
+$cbNro.Location = New-Object System.Drawing.Point(10, 134)
+$cbNro.Size = New-Object System.Drawing.Size(716, 22)
+$tip.SetToolTip($cbNro, 'Saves 1-2.5 hours. Needs one full build before (its shaders are kept). The shader files already on your SD card stay; the game files box is unticked for you.')
+$cbNro.Checked = [bool]($saved.ContainsKey('NroOnly') -and $saved['NroOnly'])
+$cbNro.Add_CheckedChanged({ if ($cbNro.Checked) { $cbGame.Checked = $false } })
+$gOut.Controls.Add($cbNro)
 
 # Buttons and progress.
 $btnBuild = New-Object System.Windows.Forms.Button
@@ -354,7 +362,7 @@ function Set-Busy([bool]$busy) {
 }
 function Save-Settings {
     try {
-        @{ Iso = $tIso.Text; Update = $tUpd.Text; Dlc = $tDlc.Text; Icon = $tIcon.Text; IconMode = $modes[[math]::Max(0, $cmbMode.SelectedIndex)]; Out = $tOut.Text; NoGameFiles = -not $cbGame.Checked } |
+        @{ Iso = $tIso.Text; Update = $tUpd.Text; Dlc = $tDlc.Text; Icon = $tIcon.Text; IconMode = $modes[[math]::Max(0, $cmbMode.SelectedIndex)]; Out = $tOut.Text; NoGameFiles = -not $cbGame.Checked; NroOnly = $cbNro.Checked } |
             ConvertTo-Json | Set-Content -Path $settingsFile -Encoding UTF8
     } catch { }
 }
@@ -374,6 +382,7 @@ $btnBuild.Add_Click({
     if ($cbCard.Checked -and $cmbCard.SelectedItem) { $a += @('-SdCard', (([string]$cmbCard.SelectedItem) -split '  \(')[0]) }
     if (-not $cbGame.Checked) { $a += '-NoGameFiles' }
     if ($cbTools.Checked) { $a += '-KeepTools' }
+    if ($cbNro.Checked) { $a += '-NroOnly' }
     $argLine = ($a | ForEach-Object { Quote $_ }) -join ' '
     # -ExtraArgs 'KeepWork FreshTools': more switches of build_switch.ps1 (names with or without the dash).
     foreach ($x in ($ExtraArgs -split '[ ,;]+' | Where-Object { $_ })) { $argLine += ' -' + $x.TrimStart('-') }

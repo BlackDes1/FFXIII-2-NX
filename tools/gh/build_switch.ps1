@@ -28,6 +28,10 @@
 #
 # Steps (each leaves <Work>\steps\<step>.ok; a run continues after the last finished step, -From <step> redoes from
 # there): tools, extract, codegen, shaders, cache, switch, package, sdcard, cleanup.
+# -NroOnly: only the NRO is built again; the shaders and the shader cache are not translated or compiled (1-2.5 hours
+# saved). It takes the shader package from the shader store (an earlier full build with the same game files), else
+# from a build folder kept with -KeepWork, else from the newest store entry (an older Builder's): then the deko3d_*.bin
+# files already on your SD card stay as they are. Without any earlier full build it stops: build once without it.
 # Disk: about 15 GB free with the game files in the SD folder (8.7 GB of them stay: they go on the SD card), about
 # 7 GB with -NoGameFiles; plus about 2.5 GB while devkitPro is installed locally. Every file the build makes besides
 # the SD folder is deleted at the end (-KeepWork / -KeepTools keep them).
@@ -53,6 +57,7 @@ param(
     [switch]$NoShaderStore,
     [switch]$FreshTools,
     [switch]$SkipHashCheck,
+    [switch]$NroOnly,
     [ValidateSet('', 'tools', 'extract', 'codegen', 'shaders', 'cache', 'switch', 'package', 'sdcard', 'cleanup')][string]$From = ''
 )
 
@@ -502,6 +507,16 @@ if (-not $NoShaderStore -and -not $SkipHashCheck) {
 }
 $store = if ($storeKey) { Join-Path $storeRoot $storeKey } else { '' }
 $pkgDir = Join-Path $repo 'app\out\renut_switch'
+# The package's .cpp embeds deko3d_glsl.bin by the absolute path of the build that made it (.incbin): point it here.
+function Fix-Incbin {
+    $fwd = $pkgDir.Replace('\', '/')
+    foreach ($c in Get-ChildItem -LiteralPath $pkgDir -Filter '*.cpp') {
+        $t = [IO.File]::ReadAllText($c.FullName)
+        $t2 = [regex]::Replace($t, '(\.incbin \\")[^"\\]*/([^"\\/]+\.bin)(\\")', { param($m) $m.Groups[1].Value + $fwd + '/' + $m.Groups[2].Value + $m.Groups[3].Value })
+        if ($t2 -ne $t) { [IO.File]::WriteAllText($c.FullName, $t2) }
+    }
+}
+if ($NroOnly -and $From -in @('shaders', 'cache')) { Fail "-NroOnly skips the shaders: it cannot start -From $From" }
 if ($store -and $From -notin @('shaders', 'cache') -and -not ((IsDone 'shaders') -and (IsDone 'cache')) -and (Test-Path (Join-Path $store 'complete.ok'))) {
     try {
         Say "shaders + cache: taken from the shader store ($store)"
@@ -510,15 +525,27 @@ if ($store -and $From -notin @('shaders', 'cache') -and -not ((IsDone 'shaders')
         Copy-Item -Force (Join-Path $store 'deko3d_glsl_full.bin') (Join-Path $sd 'deko3d_glsl.bin')
         Copy-Item -Force (Join-Path $store 'deko3d_shaders.bin') (Join-Path $sd 'deko3d_shaders.bin')
         foreach ($f in @('deko3d_glsl_switch.cpp', 'shader_cache_switch.cpp')) { if (-not (Test-Path (Join-Path $pkgDir $f))) { throw "$f is missing in the store" } }
-        # The package's .cpp embeds deko3d_glsl.bin by the absolute path of the build that made it (.incbin): point it here.
-        $fwd = $pkgDir.Replace('\', '/')
-        foreach ($c in Get-ChildItem -LiteralPath $pkgDir -Filter '*.cpp') {
-            $t = [IO.File]::ReadAllText($c.FullName)
-            $t2 = [regex]::Replace($t, '(\.incbin \\")[^"\\]*/([^"\\/]+\.bin)(\\")', { param($m) $m.Groups[1].Value + $fwd + '/' + $m.Groups[2].Value + $m.Groups[3].Value })
-            if ($t2 -ne $t) { [IO.File]::WriteAllText($c.FullName, $t2) }
-        }
+        Fix-Incbin
         Done 'shaders'; Done 'cache'
     } catch { Warn "the shader store could not be used ($($_.Exception.Message)): translating again" }
+}
+# -NroOnly: no shader translation and no shader cache; the package the NRO embeds comes from an earlier build.
+if ($NroOnly -and -not ((IsDone 'shaders') -and (IsDone 'cache'))) {
+    $pkgOk = (Test-Path (Join-Path $pkgDir 'deko3d_glsl_switch.cpp')) -and (Test-Path (Join-Path $pkgDir 'shader_cache_switch.cpp'))
+    if ($pkgOk) {
+        Say 'shaders + cache: skipped (-NroOnly); the shader package of the kept build folder is used'
+        Fix-Incbin
+    } else {
+        $old = Get-ChildItem -LiteralPath $storeRoot -Directory -ErrorAction SilentlyContinue | Where-Object { Test-Path (Join-Path $_.FullName 'complete.ok') } |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if (-not $old) { Fail "-NroOnly: no shaders from an earlier build (no shader store at $storeRoot, no kept build folder). Build once without 'Only build the NRO'." }
+        Say "shaders + cache: skipped (-NroOnly); the shader package of an earlier build is used ($($old.FullName))"
+        New-Item -ItemType Directory -Force $pkgDir | Out-Null
+        Copy-Item -Force (Join-Path $old.FullName 'renut_switch\*') $pkgDir
+        Fix-Incbin
+        Warn 'the game files, DLC or shader tools differ from that build: the deko3d_*.bin files already on your SD card are kept (not in this SD folder); if the game compiles shaders at start, build once without -NroOnly'
+    }
+    Done 'shaders'; Done 'cache'
 }
 if (-not (IsDone 'shaders')) {
     NeedFree 6 'the shader translation'
